@@ -1,5 +1,6 @@
 import { defaultSimulationRules } from "@gamejam/shared";
 
+import { createRealtimeTransport } from "./realtime-transport.js";
 import { createServerFoundation } from "./server-foundation.js";
 
 const port = Number(process.env.PORT ?? 3000);
@@ -9,6 +10,10 @@ const foundation = createServerFoundation({
   host,
   port,
   tickRate: defaultSimulationRules.tickRate
+});
+createRealtimeTransport({
+  io: foundation.io,
+  tickLoop: foundation.tickLoop
 });
 
 async function main(): Promise<void> {

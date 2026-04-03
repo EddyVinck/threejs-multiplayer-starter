@@ -213,14 +213,6 @@ export function createServerFoundation(
     ...options.socketServerOptions
   });
 
-  io.on("connection", (socket) => {
-    logger.info(`socket connected ${socket.id}`);
-
-    socket.on("disconnect", () => {
-      logger.info(`socket disconnected ${socket.id}`);
-    });
-  });
-
   return {
     app,
     httpServer,

@@ -180,6 +180,10 @@ export type RoomRuntimeRegistryOptions = {
   createPlayerId?: () => PlayerId;
   createRoomCode?: () => RoomCode;
   maxRoomCodeGenerationAttempts?: number;
+  onRoomStepped?: (
+    room: RoomRuntime,
+    result: RoomRuntimeStepResult
+  ) => void;
   tickLoop?: Pick<
     GlobalAuthoritativeTickLoop,
     "registerRoom" | "unregisterRoom"
@@ -503,7 +507,8 @@ export function createRoomRuntimeRegistry(
     options.tickLoop?.registerRoom({
       roomId: room.roomId,
       step() {
-        room.step();
+        const stepResult = room.step();
+        options.onRoomStepped?.(room, stepResult);
         pruneDisposedRoom(room.roomId);
       }
     });
