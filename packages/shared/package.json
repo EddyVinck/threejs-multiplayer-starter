@@ -5,8 +5,17 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "scripts": {
     "build": "pnpm exec tsc --project tsconfig.json",
     "typecheck": "pnpm exec tsc --project tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "zod": "^4.3.6"
   }
 }
