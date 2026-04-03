@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
 
+import {
+  defaultSimulationRules,
+  type SimulationRules
+} from "@gamejam/shared";
+
 import { createGlobalAuthoritativeTickLoop } from "./server-foundation.js";
 import {
   createRoomRuntimeRegistry,
@@ -8,7 +13,23 @@ import {
 
 type RegistryFactoryOptions = {
   emptyRoomTtlTicks?: number;
+  rules?: SimulationRules;
 };
+
+function createRules(overrides: Partial<SimulationRules> = {}): SimulationRules {
+  return {
+    ...defaultSimulationRules,
+    ...overrides,
+    round: {
+      ...defaultSimulationRules.round,
+      ...overrides.round
+    },
+    pickup: {
+      ...defaultSimulationRules.pickup,
+      ...overrides.pickup
+    }
+  };
+}
 
 function createDeterministicRegistry(
   options: RegistryFactoryOptions = {}
@@ -22,6 +43,7 @@ function createDeterministicRegistry(
     ...(options.emptyRoomTtlTicks === undefined
       ? {}
       : { emptyRoomTtlTicks: options.emptyRoomTtlTicks }),
+    ...(options.rules === undefined ? {} : { rules: options.rules }),
     createRoomId: () => `room-${nextRoomId++}`,
     createPlayerId: () => `player-${nextPlayerId++}`,
     createRoomCode: () => roomCodes[nextRoomCode++] ?? "NP8Q9R"
@@ -29,6 +51,38 @@ function createDeterministicRegistry(
 }
 
 describe("room runtime", () => {
+  it("creates private rooms by default and exposes them through registry lookups", () => {
+    const registry = createDeterministicRegistry();
+
+    const created = registry.createRoom({});
+    const room = registry.getRoomById(created.roomId);
+
+    expect(created.createdRoom).toBe(true);
+    expect(created.lateJoin).toBe(false);
+    expect(created.visibility).toBe("private");
+    expect(created.snapshot.round).toEqual({
+      phase: "active",
+      roundNumber: 1,
+      remainingMs: defaultSimulationRules.round.durationMs
+    });
+    expect(created.snapshot.players).toEqual([
+      expect.objectContaining({
+        playerId: created.playerId,
+        displayName: "Player 1",
+        connected: true
+      })
+    ]);
+    expect(room?.listMembers()).toEqual([
+      expect.objectContaining({
+        playerId: created.playerId,
+        displayName: "Player 1",
+        connected: true,
+        joinedAtTick: 0
+      })
+    ]);
+    expect(registry.getRoomByCode("ab-2c3d")?.roomId).toBe(created.roomId);
+  });
+
   it("quick joins into an existing public room before creating another one", () => {
     const registry = createDeterministicRegistry();
 
@@ -44,6 +98,35 @@ describe("room runtime", () => {
     expect(secondJoin.roomId).toBe(firstJoin.roomId);
     expect(registry.listRooms()).toHaveLength(1);
     expect(registry.getRoomById(firstJoin.roomId)?.getMemberCount()).toBe(2);
+  });
+
+  it("prefers the most populated eligible public room for quick join", () => {
+    const registry = createDeterministicRegistry();
+
+    const crowded = registry.quickJoin({
+      displayName: "Crowded Host"
+    });
+    registry.quickJoin({
+      displayName: "Crowded Guest"
+    });
+
+    const sparsePublic = registry.createRoom({
+      displayName: "Sparse Host",
+      visibility: "public"
+    });
+    const privateRoom = registry.createRoom({
+      displayName: "Private Host"
+    });
+
+    const joined = registry.quickJoin({
+      displayName: "Matcher"
+    });
+
+    expect(joined.createdRoom).toBe(false);
+    expect(joined.roomId).toBe(crowded.roomId);
+    expect(joined.roomId).not.toBe(sparsePublic.roomId);
+    expect(joined.roomId).not.toBe(privateRoom.roomId);
+    expect(registry.getRoomById(crowded.roomId)?.getConnectedMemberCount()).toBe(3);
   });
 
   it("joins a room by normalized code and marks in-progress joins as late joins", () => {
@@ -86,6 +169,57 @@ describe("room runtime", () => {
       expect(error).toBeInstanceOf(RoomRuntimeError);
       expect((error as RoomRuntimeError).code).toBe("not-allowed");
     }
+  });
+
+  it("surfaces round lifecycle transitions through room runtime snapshots and deltas", () => {
+    const registry = createDeterministicRegistry({
+      rules: createRules({
+        tickRate: 10,
+        round: {
+          durationMs: 300,
+          resetDurationMs: 200
+        }
+      })
+    });
+    const created = registry.createRoom({
+      displayName: "Host",
+      visibility: "public"
+    });
+    const room = registry.getRoomById(created.roomId);
+
+    expect(room).not.toBeNull();
+    expect(created.snapshot.round).toEqual({
+      phase: "active",
+      roundNumber: 1,
+      remainingMs: 300
+    });
+
+    const firstTick = room?.step();
+    room?.step();
+    const resetScheduled = room?.step();
+    room?.step();
+    const nextRound = room?.step();
+
+    expect(firstTick?.delta?.round).toEqual({
+      phase: "active",
+      roundNumber: 1,
+      remainingMs: 200
+    });
+    expect(resetScheduled?.delta?.round).toEqual({
+      phase: "resetting",
+      roundNumber: 1,
+      remainingMs: 200
+    });
+    expect(nextRound?.delta?.round).toEqual({
+      phase: "active",
+      roundNumber: 2,
+      remainingMs: 300
+    });
+    expect(room?.exportSnapshot().round).toEqual({
+      phase: "active",
+      roundNumber: 2,
+      remainingMs: 300
+    });
   });
 
   it("cleans up empty rooms on leave and after disconnected idle expiry", () => {
