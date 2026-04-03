@@ -95,6 +95,7 @@ export const roomDeltaSchema = z.object({
   serverTick: nonNegativeIntegerSchema,
   round: roundStateSchema.optional(),
   updatedPlayers: z.array(playerSnapshotSchema),
+  removedPlayerIds: z.array(playerIdSchema),
   updatedPickups: z.array(pickupSnapshotSchema),
   removedPickupIds: z.array(entityIdSchema)
 });

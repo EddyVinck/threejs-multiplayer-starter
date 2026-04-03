@@ -77,6 +77,7 @@ type MutableState = AuthoritativeRoomState;
 
 type DirtyState = {
   players: Set<PlayerId>;
+  removedPlayers: Set<PlayerId>;
   pickups: Set<SimulationPickupState["pickupId"]>;
   round: boolean;
 };
@@ -209,6 +210,7 @@ function buildRoomSnapshot(state: MutableState): RoomSnapshot {
 function emptyDirtyState(): DirtyState {
   return {
     players: new Set<PlayerId>(),
+    removedPlayers: new Set<PlayerId>(),
     pickups: new Set<SimulationPickupState["pickupId"]>(),
     round: false
   };
@@ -218,6 +220,7 @@ export type SimulationCore = {
   upsertPlayer(
     registration: SimulationCorePlayerRegistration
   ): SimulationPlayerState;
+  removePlayer(playerId: PlayerId): boolean;
   setPlayerConnected(playerId: PlayerId, connected: boolean): boolean;
   submitPlayerCommand(playerId: PlayerId, command: PlayerCommand): void;
   step(): SimulationStepResult;
@@ -598,6 +601,30 @@ export function createSimulationCore(
       return clonePlayer(player);
     },
 
+    removePlayer(playerId) {
+      const playerIndex = state.players.findIndex(
+        (candidate) => candidate.playerId === playerId
+      );
+      if (playerIndex === -1) {
+        return false;
+      }
+
+      state.players.splice(playerIndex, 1);
+      latestCommands.delete(playerId);
+      dirty.players.delete(playerId);
+      dirty.removedPlayers.add(playerId);
+
+      if (state.players.length === 0) {
+        resetPickupsForRound();
+        state.round.roundNumber = 0;
+        transitionToWaiting();
+      } else {
+        markRoundDirty();
+      }
+
+      return true;
+    },
+
     setPlayerConnected(playerId, connected) {
       const player = state.players.find((candidate) => candidate.playerId === playerId);
       if (!player) {
@@ -672,6 +699,7 @@ export function createSimulationCore(
       if (
         !dirty.round &&
         dirty.players.size === 0 &&
+        dirty.removedPlayers.size === 0 &&
         dirty.pickups.size === 0
       ) {
         return null;
@@ -703,11 +731,13 @@ export function createSimulationCore(
         serverTick: state.serverTick,
         round: dirty.round ? buildRoundState(state) : undefined,
         updatedPlayers: players,
+        removedPlayerIds: [...dirty.removedPlayers],
         updatedPickups: pickups,
         removedPickupIds: []
       });
 
       dirty.players.clear();
+      dirty.removedPlayers.clear();
       dirty.pickups.clear();
       dirty.round = false;
 
