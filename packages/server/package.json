@@ -1,0 +1,14 @@
+{
+  "name": "@gamejam/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm exec tsx watch src/index.ts",
+    "build": "pnpm exec tsc --project tsconfig.json",
+    "typecheck": "pnpm exec tsc --project tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}

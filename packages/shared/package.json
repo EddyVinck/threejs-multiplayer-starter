@@ -1,0 +1,12 @@
+{
+  "name": "@gamejam/shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "pnpm exec tsc --project tsconfig.json",
+    "typecheck": "pnpm exec tsc --project tsconfig.json --noEmit"
+  }
+}

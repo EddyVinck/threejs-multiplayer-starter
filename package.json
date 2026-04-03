@@ -1,0 +1,29 @@
+{
+  "name": "gamejam",
+  "private": true,
+  "packageManager": "pnpm@10.26.0",
+  "scripts": {
+    "dev": "pnpm exec concurrently -n server,client -c cyan,magenta \"pnpm --filter @gamejam/server dev\" \"pnpm --filter @gamejam/client dev\"",
+    "build": "pnpm --filter @gamejam/shared build && pnpm --filter @gamejam/server build && pnpm --filter @gamejam/client build",
+    "lint": "pnpm exec eslint .",
+    "typecheck": "pnpm --filter @gamejam/shared typecheck && pnpm --filter @gamejam/server typecheck && pnpm --filter @gamejam/client typecheck",
+    "test": "pnpm exec vitest run --passWithNoTests",
+    "test:watch": "pnpm exec vitest --passWithNoTests",
+    "format": "pnpm exec prettier --write ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.5.2",
+    "concurrently": "^9.2.1",
+    "eslint": "^10.2.0",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.4.0",
+    "prettier": "^3.8.1",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2",
+    "typescript-eslint": "^8.58.0",
+    "vite": "^8.0.3",
+    "vitest": "^4.1.2"
+  }
+}

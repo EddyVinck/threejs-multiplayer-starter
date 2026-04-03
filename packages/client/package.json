@@ -1,0 +1,11 @@
+{
+  "name": "@gamejam/client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm exec vite",
+    "build": "pnpm exec vite build",
+    "typecheck": "pnpm exec tsc --project tsconfig.json --noEmit"
+  }
+}

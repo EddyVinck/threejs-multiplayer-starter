@@ -1,4 +1,4 @@
-- [ ] P0: Initialize the pnpm workspace with `client`, `server`, and `shared` packages, root scripts, strict TypeScript config, ESLint, Prettier, Vitest, and a single `pnpm dev` entrypoint orchestrated with `concurrently`.
+- [x] P0: Initialize the pnpm workspace with `client`, `server`, and `shared` packages, root scripts, strict TypeScript config, ESLint, Prettier, Vitest, and a single `pnpm dev` entrypoint orchestrated with `concurrently`.
 - [ ] P0: Establish the shared contract kit first, including message envelopes, protocol event names, Zod schemas, DTOs, room code utilities, and pure serialization helpers.
 - [ ] P0: Define the core simulation model in `shared` and `server` terms before building rendering, including entity state shape, pickup rules, score state, round timer state, and reset semantics.
 - [ ] P0: Build the simulation core as a deep module with a small public interface for fixed-step updates, snapshot export, delta production, round reset, and late-join hydration.
@@ -44,3 +44,7 @@
 - [ ] P2: Add production build scripts so the client builds separately and is served statically by the server in the final deployable app shape.
 - [ ] P2: Validate the final package against the jam constraints by checking startup time, avoiding loading screens, minimizing first-load weight, and confirming no login or signup flows exist.
 - [ ] P2: Review all deep module interfaces after the first end-to-end pass and simplify any surface area that became too chatty or leaked implementation details.
+
+## Progress Log
+
+- 2026-04-03: Completed the workspace bootstrap P0 task by adding the root pnpm workspace, strict TypeScript base config, ESLint/Prettier/Vitest tooling, `pnpm dev` orchestration with `concurrently`, and minimal `client`, `server`, and `shared` package skeletons. Files changed: `package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `tsconfig.base.json`, `tsconfig.json`, `eslint.config.mjs`, `.prettierrc.json`, `.prettierignore`, `.gitignore`, `packages/client/*`, `packages/server/*`, `packages/shared/*`, and `specs/boilerplate-implementation-plan.md`. Checks run: `pnpm lint` passed, `pnpm typecheck` passed, `pnpm test` passed with no test files, and `pnpm build` passed. Next recommended task: establish the shared contract kit with protocol envelopes, Zod schemas, DTOs, room-code helpers, and pure serialization utilities.
