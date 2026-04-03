@@ -3,3 +3,4 @@ dist
 node_modules
 .pnpm-store
 *.tsbuildinfo
+**/*.tsbuildinfo

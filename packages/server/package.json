@@ -9,6 +9,7 @@
     "typecheck": "pnpm exec tsc --project tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@gamejam/shared": "workspace:*",
     "express": "^5.2.1"
   }
 }
