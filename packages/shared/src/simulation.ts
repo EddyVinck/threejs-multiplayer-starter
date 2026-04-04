@@ -187,14 +187,32 @@ export function resolvePlayerVelocity(
     y: number;
     z: number;
   },
+  yaw = 0,
   speed = DEFAULT_PLAYER_MOVE_SPEED
 ): Vector3 {
   const normalizedMove = normalizeMovementInput(move);
+  const rotatedHorizontal = rotateHorizontalInput(normalizedMove, yaw);
 
   return {
-    x: normalizedMove.x * speed,
+    x: rotatedHorizontal.x * speed,
     y: normalizedMove.y * speed,
-    z: normalizedMove.z * speed
+    z: rotatedHorizontal.z * speed
+  };
+}
+
+function rotateHorizontalInput(
+  vector: {
+    x: number;
+    z: number;
+  },
+  yaw: number
+): Pick<Vector3, "x" | "z"> {
+  const cosine = Math.cos(yaw);
+  const sine = Math.sin(yaw);
+
+  return {
+    x: vector.x * cosine - vector.z * sine,
+    z: vector.x * sine + vector.z * cosine
   };
 }
 

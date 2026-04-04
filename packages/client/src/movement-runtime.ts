@@ -128,9 +128,9 @@ export function createMovementRuntime(): MovementRuntime {
       return;
     }
 
-    const nextVelocity =
-      latestCommand === null ? ZERO_VECTOR : resolvePlayerVelocity(latestCommand.move);
     const nextYaw = latestCommand?.look.yaw ?? localPlayer.yaw;
+    const nextVelocity =
+      latestCommand === null ? ZERO_VECTOR : resolvePlayerVelocity(latestCommand.move, nextYaw);
     const desiredTranslation = scaleVector(
       nextVelocity,
       1 / currentSnapshot.rules.tickRate

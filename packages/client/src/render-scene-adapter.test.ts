@@ -46,6 +46,9 @@ describe("render scene adapter", () => {
     expect(renderer.lastScene?.getObjectByName("pickup:pickup-west")?.visible).toBe(
       false
     );
+    expect(
+      renderer.lastScene?.getObjectByName("player:remote-player")?.rotation.y
+    ).toBeCloseTo(-Math.PI / 2, 5);
     expect(renderer.lastCamera?.position.y).toBeGreaterThan(0);
 
     adapter.dispose();

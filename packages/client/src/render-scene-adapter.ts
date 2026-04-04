@@ -360,7 +360,7 @@ export function createRenderSceneAdapter(
         player.position.y,
         player.position.z
       );
-      visual.group.rotation.set(0, player.yaw, 0);
+      visual.group.rotation.set(0, -player.yaw, 0);
 
       const color = !player.connected
         ? DISCONNECTED_PLAYER_COLOR

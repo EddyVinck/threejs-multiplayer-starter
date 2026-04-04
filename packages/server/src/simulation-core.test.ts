@@ -188,7 +188,7 @@ describe("simulation core", () => {
       sequence: 1,
       deltaMs: 50,
       move: { x: 1, y: 0, z: 0 },
-      look: { yaw: 90, pitch: 0 },
+      look: { yaw: 0, pitch: 0 },
       actions: {
         jump: false,
         primary: false,
@@ -219,6 +219,43 @@ describe("simulation core", () => {
     expect(lateJoinSnapshot.players).toHaveLength(2);
     expect(lateJoinSnapshot.players.find((player) => player.playerId === "player-1")?.score).toBe(1);
     expect(lateJoinSnapshot.pickups[0]?.active).toBe(false);
+  });
+
+  it("moves forward relative to the submitted look yaw", () => {
+    const core = createSimulationCore({
+      roomId: "room-1",
+      roomCode: "AB2C3D",
+      mode: "multiplayer",
+      visibility: "public",
+      lateJoinAllowed: true,
+      arena: structuredArena
+    });
+
+    core.upsertPlayer({
+      playerId: "player-1",
+      displayName: "Eddy"
+    });
+    core.exportDelta();
+
+    core.submitPlayerCommand("player-1", {
+      sequence: 1,
+      deltaMs: 50,
+      move: { x: 0, y: 0, z: -1 },
+      look: { yaw: Math.PI / 2, pitch: 0 },
+      actions: {
+        jump: false,
+        primary: false,
+        secondary: false
+      }
+    });
+
+    core.step();
+
+    const player = core.exportSnapshot().players[0];
+    expect(player).toBeDefined();
+    expect(player?.position.x).toBeGreaterThan(-4);
+    expect(player?.position.z).toBeCloseTo(0, 5);
+    expect(player?.yaw).toBeCloseTo(Math.PI / 2, 5);
   });
 
   it("schedules and completes round resets with clean player and pickup state", () => {

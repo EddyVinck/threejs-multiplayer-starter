@@ -342,7 +342,7 @@ export function createSimulationCore(
       return;
     }
 
-    const nextVelocity = resolvePlayerVelocity(command.move);
+    const nextVelocity = resolvePlayerVelocity(command.move, command.look.yaw);
     const nextPosition = resolveArenaMotion({
       currentPosition: player.position,
       desiredTranslation: {

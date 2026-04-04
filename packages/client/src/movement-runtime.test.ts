@@ -8,12 +8,16 @@ import {
 
 import { createMovementRuntime } from "./movement-runtime.js";
 
-function createMoveCommand(sequence: number, move: PlayerCommand["move"]): PlayerCommand {
+function createMoveCommand(
+  sequence: number,
+  move: PlayerCommand["move"],
+  look: PlayerCommand["look"] = { yaw: 0, pitch: 0 }
+): PlayerCommand {
   return {
     sequence,
     deltaMs: 50,
     move,
-    look: { yaw: 0, pitch: 0 },
+    look,
     actions: {
       jump: false,
       primary: false,
@@ -116,6 +120,26 @@ describe("movement runtime", () => {
       y: 0,
       z: 0
     });
+
+    runtime.dispose();
+  });
+
+  it("rotates local movement to match the latest camera yaw", () => {
+    const runtime = createMovementRuntime();
+    runtime.syncAuthoritativeSnapshot(createSnapshot(), "player-1");
+    runtime.submitPlayerCommand(
+      createMoveCommand(1, { x: 0, y: 0, z: -1 }, { yaw: Math.PI / 2, pitch: 0 })
+    );
+
+    runtime.start();
+    vi.advanceTimersByTime(Math.round(1000 / defaultSimulationRules.tickRate));
+
+    const snapshot = runtime.getSnapshot();
+    expect(snapshot?.players[0]?.position.x).toBeCloseTo(0.3, 5);
+    expect(snapshot?.players[0]?.position.z).toBeCloseTo(0, 5);
+    expect(snapshot?.players[0]?.velocity.x).toBeCloseTo(6, 5);
+    expect(snapshot?.players[0]?.velocity.z).toBeCloseTo(0, 5);
+    expect(snapshot?.players[0]?.yaw).toBeCloseTo(Math.PI / 2, 5);
 
     runtime.dispose();
   });
