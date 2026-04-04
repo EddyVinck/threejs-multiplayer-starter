@@ -2,6 +2,8 @@
 
 A TypeScript-first web game starter: **Vite** + **Three.js** + **Rapier** on the client, **Express** + **Socket.IO** on the server, and **shared** Zod-validated contracts. Single-player is the default path; multiplayer is server-authoritative and room-based, without accounts or backend persistence beyond what each browser stores locally.
 
+![Multiplayer demo gif](./gamejam-starter-multiplayer.gif)
+
 **Packages:** `@gamejam/client` (UI, rendering, input), `@gamejam/server` (HTTP, realtime, tick loop), `@gamejam/shared` (schemas, simulation-facing types). Product goals and architecture notes live in `specs/boilerplate-spec.md`.
 
 ## Prerequisites
