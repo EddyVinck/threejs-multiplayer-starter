@@ -9,6 +9,7 @@ import {
 } from "./boot-status.js";
 import { mountClientBootShell } from "./boot-shell.js";
 import { createClientSettingsStore } from "./persistence.js";
+import { createPlayerCommandPipeline } from "./player-command-pipeline.js";
 import { createSessionOrchestrator } from "./session-orchestrator.js";
 import { resolveInitialSessionEntry } from "./session-entry.js";
 import type { SessionStartRequest } from "./session-orchestrator.js";
@@ -30,10 +31,19 @@ const bootShell = mountClientBootShell({
   appRoot: app,
   resolution: initialSessionEntry
 });
+let stopCommandPipeline: (() => void) | null = null;
 
 void orchestrator
   .startSession(initialSessionRequest)
   .then((session) => {
+    stopCommandPipeline?.();
+    stopCommandPipeline = attachPlayerCommandPipeline({
+      canvas: bootShell.canvas,
+      submitCommand: (command) => {
+        session.submitPlayerCommand(command);
+      }
+    });
+
     const joinedSession = session.getSessionJoined();
     if (joinedSession !== null) {
       bootShell.setStatus(describeJoinedStatus(joinedSession));
@@ -61,11 +71,15 @@ void orchestrator
       }
 
       if (event.type === "stopped") {
+        stopCommandPipeline?.();
+        stopCommandPipeline = null;
         bootShell.setStatus(describeStoppedStatus());
       }
     });
   })
   .catch((error: unknown) => {
+    stopCommandPipeline?.();
+    stopCommandPipeline = null;
     const message =
       error instanceof Error ? error.message : "failed to start session";
     bootShell.setStatus(describeStartupFailureStatus(message));
@@ -82,5 +96,23 @@ function applyPersistedDisplayName(
   return {
     ...request,
     displayName
+  };
+}
+
+function attachPlayerCommandPipeline(options: {
+  canvas: HTMLCanvasElement;
+  submitCommand: Parameters<
+    typeof createPlayerCommandPipeline
+  >[0]["submitCommand"];
+}): () => void {
+  const pipeline = createPlayerCommandPipeline({
+    captureElement: options.canvas,
+    submitCommand: options.submitCommand
+  });
+
+  pipeline.start();
+
+  return () => {
+    pipeline.stop();
   };
 }
