@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "pnpm exec tsx watch src/index.ts",
     "build": "pnpm exec tsc --project tsconfig.json",
+    "start": "NODE_ENV=production node dist/index.js",
     "typecheck": "pnpm exec tsc --project tsconfig.json --noEmit"
   },
   "dependencies": {

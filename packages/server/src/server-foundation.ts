@@ -1,5 +1,6 @@
 import express, { type Express } from "express";
 import { createServer, type Server as HttpServer } from "node:http";
+import path from "node:path";
 
 import {
   defaultSimulationRules,
@@ -43,6 +44,11 @@ export type ServerFoundationOptions = {
   tickRate?: number;
   logger?: ServerLogger;
   socketServerOptions?: Partial<SocketIOServerOptions>;
+  /**
+   * When set, serves the Vite client build (`index.html` plus hashed assets) and
+   * falls back to `index.html` for client-side routes (single-page app).
+   */
+  clientStaticRoot?: string;
 };
 
 export type ServerFoundationAddress = {
@@ -203,6 +209,24 @@ export function createServerFoundation(
       activeRooms: tickLoop.getRegisteredRoomCount()
     });
   });
+
+  const clientStaticRoot = options.clientStaticRoot;
+  if (clientStaticRoot !== undefined && clientStaticRoot.length > 0) {
+    const absoluteRoot = path.resolve(clientStaticRoot);
+    app.use(express.static(absoluteRoot));
+    app.use((request, response, next) => {
+      if (request.method !== "GET" && request.method !== "HEAD") {
+        next();
+        return;
+      }
+
+      response.sendFile(path.join(absoluteRoot, "index.html"), (error) => {
+        if (error) {
+          next(error);
+        }
+      });
+    });
+  }
 
   const httpServer = createServer(app);
   const io = new SocketIOServer(httpServer, {
