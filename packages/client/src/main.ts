@@ -1,10 +1,8 @@
 import "./styles.css";
 
 import {
-  describeJoinedStatus,
   describeProtocolErrorStatus,
   describeSessionStartingStatus,
-  describeSnapshotStatus,
   describeStartupFailureStatus,
   describeStoppedStatus
 } from "./boot-status.js";
@@ -86,30 +84,40 @@ async function startSession(
     if (joinedSession !== null) {
       syncRoomLink(joinedSession);
       renderSceneAdapter.syncSessionJoined(joinedSession);
-      bootShell.setStatus(describeJoinedStatus(joinedSession));
     }
 
     const latestSnapshot = session.getLatestSnapshot();
     if (latestSnapshot !== null) {
       renderSceneAdapter.syncAuthoritativeSnapshot(latestSnapshot);
-      bootShell.setStatus(describeSnapshotStatus(latestSnapshot));
     }
 
     renderSceneAdapter.start();
     bootShell.setPendingSessionStart(null);
     bootShell.setPreGameVisible(false);
 
+    if (joinedSession !== null) {
+      bootShell.setInGameHudVisible(true);
+      bootShell.updateInGameHud(joinedSession, latestSnapshot);
+    }
+
     unsubscribeFromSession = session.subscribe((event) => {
       if (event.type === "joined") {
         syncRoomLink(event.joined);
         renderSceneAdapter?.syncSessionJoined(event.joined);
-        bootShell.setStatus(describeJoinedStatus(event.joined));
+        bootShell.setInGameHudVisible(true);
+        bootShell.updateInGameHud(
+          event.joined,
+          session.getLatestSnapshot()
+        );
         return;
       }
 
       if (event.type === "snapshot") {
         renderSceneAdapter?.syncAuthoritativeSnapshot(event.snapshot);
-        bootShell.setStatus(describeSnapshotStatus(event.snapshot));
+        const joined = session.getSessionJoined();
+        if (joined !== null) {
+          bootShell.updateInGameHud(joined, event.snapshot);
+        }
         return;
       }
 
@@ -117,12 +125,16 @@ async function startSession(
         const updatedSnapshot = session.getLatestSnapshot();
         if (updatedSnapshot !== null) {
           renderSceneAdapter?.syncAuthoritativeSnapshot(updatedSnapshot);
-          bootShell.setStatus(describeSnapshotStatus(updatedSnapshot));
+          const joined = session.getSessionJoined();
+          if (joined !== null) {
+            bootShell.updateInGameHud(joined, updatedSnapshot);
+          }
         }
         return;
       }
 
       if (event.type === "protocol-error") {
+        bootShell.setInGameHudVisible(false);
         bootShell.setStatus(describeProtocolErrorStatus(event.error));
         return;
       }
@@ -132,6 +144,7 @@ async function startSession(
         stopCommandPipeline = null;
         renderSceneAdapter?.stop();
         bootShell.setPendingSessionStart(null);
+        bootShell.setInGameHudVisible(false);
         bootShell.setPreGameVisible(true);
         bootShell.setStatus(describeStoppedStatus());
       }

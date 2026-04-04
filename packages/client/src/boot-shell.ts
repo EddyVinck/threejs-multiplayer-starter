@@ -3,13 +3,16 @@ import {
   displayNameSchema,
   normalizeRoomCode,
   ROOM_CODE_LENGTH,
-  roomCodeSchema
+  roomCodeSchema,
+  type RoomSnapshot,
+  type SessionJoined
 } from "@gamejam/shared";
 
 import {
   describeInitialBootStatus,
   type BootStatusViewModel
 } from "./boot-status.js";
+import { buildInGameHudViewModel } from "./in-game-hud.js";
 import type { ClientSettingsStore } from "./persistence.js";
 import { resolveRenderCanvasSize } from "./render-budget.js";
 import type { SessionEntryResolution } from "./session-entry.js";
@@ -21,6 +24,11 @@ export type ClientBootShell = {
   setStatus(status: BootStatusViewModel): void;
   setPreGameVisible(visible: boolean): void;
   setPendingSessionStart(mode: SessionStartRequest["mode"] | null): void;
+  setInGameHudVisible(visible: boolean): void;
+  updateInGameHud(
+    joined: SessionJoined,
+    snapshot: RoomSnapshot | null
+  ): void;
   dispose(): void;
 };
 
@@ -46,6 +54,22 @@ export function mountClientBootShell(options: {
   const overlayRoot = document.createElement("div");
   overlayRoot.className = "overlay-root";
   overlayRoot.id = "overlay-root";
+
+  const inGameHud = document.createElement("section");
+  inGameHud.className = "ingame-hud";
+  inGameHud.setAttribute("aria-label", "In-game status");
+  inGameHud.hidden = true;
+
+  const inGameHudScore = document.createElement("p");
+  inGameHudScore.className = "ingame-hud-line ingame-hud-score";
+
+  const inGameHudTimer = document.createElement("p");
+  inGameHudTimer.className = "ingame-hud-line ingame-hud-timer";
+
+  const inGameHudRoom = document.createElement("p");
+  inGameHudRoom.className = "ingame-hud-line ingame-hud-room";
+
+  inGameHud.append(inGameHudScore, inGameHudTimer, inGameHudRoom);
 
   const overlayChrome = document.createElement("div");
   overlayChrome.className = "overlay-chrome";
@@ -326,7 +350,7 @@ export function mountClientBootShell(options: {
   );
   bootPanel.append(badge, title, detail);
   overlayChrome.append(preGamePanel, bootPanel);
-  overlayRoot.append(overlayChrome);
+  overlayRoot.append(inGameHud, overlayChrome);
   shell.append(backdropCanvas, canvas, overlayRoot);
   appRoot.replaceChildren(shell);
 
@@ -361,6 +385,21 @@ export function mountClientBootShell(options: {
 
   const setPreGameVisible = (visible: boolean) => {
     preGamePanel.hidden = !visible;
+  };
+
+  const setInGameHudVisible = (visible: boolean) => {
+    inGameHud.hidden = !visible;
+    bootPanel.hidden = visible;
+  };
+
+  const updateInGameHud = (
+    joined: SessionJoined,
+    snapshot: RoomSnapshot | null
+  ) => {
+    const vm = buildInGameHudViewModel(joined, snapshot);
+    inGameHudScore.textContent = vm.scoreLine;
+    inGameHudTimer.textContent = vm.timerLine;
+    inGameHudRoom.textContent = vm.roomLine;
   };
 
   const setPendingSessionStart = (mode: SessionStartRequest["mode"] | null) => {
@@ -403,6 +442,8 @@ export function mountClientBootShell(options: {
     setStatus,
     setPreGameVisible,
     setPendingSessionStart,
+    setInGameHudVisible,
+    updateInGameHud,
     dispose() {
       window.removeEventListener("resize", resizeCanvases);
     }

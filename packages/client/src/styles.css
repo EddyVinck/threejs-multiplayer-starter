@@ -55,6 +55,45 @@ body {
   z-index: 2;
 }
 
+.ingame-hud {
+  position: absolute;
+  top: 1.5rem;
+  left: 1.5rem;
+  z-index: 3;
+  max-width: min(20rem, 90vw);
+  padding: 0.75rem 1rem;
+  border: 1px solid rgba(146, 188, 255, 0.22);
+  border-radius: 0.75rem;
+  background: rgba(6, 10, 18, 0.78);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.28);
+  pointer-events: none;
+}
+
+.ingame-hud-line {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.35;
+  color: rgba(246, 247, 251, 0.92);
+}
+
+.ingame-hud-score {
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+}
+
+.ingame-hud-timer {
+  margin-top: 0.35rem;
+  color: rgba(137, 243, 181, 0.95);
+}
+
+.ingame-hud-room {
+  margin-top: 0.45rem;
+  font-size: 0.8rem;
+  color: rgba(246, 247, 251, 0.65);
+}
+
 .overlay-chrome {
   display: flex;
   min-height: 100%;
