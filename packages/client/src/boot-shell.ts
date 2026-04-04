@@ -1,9 +1,16 @@
-import { ROOM_CODE_LENGTH, normalizeRoomCode, roomCodeSchema } from "@gamejam/shared";
+import {
+  DISPLAY_NAME_MAX_LENGTH,
+  displayNameSchema,
+  normalizeRoomCode,
+  ROOM_CODE_LENGTH,
+  roomCodeSchema
+} from "@gamejam/shared";
 
 import {
   describeInitialBootStatus,
   type BootStatusViewModel
 } from "./boot-status.js";
+import type { ClientSettingsStore } from "./persistence.js";
 import { resolveRenderCanvasSize } from "./render-budget.js";
 import type { SessionEntryResolution } from "./session-entry.js";
 import type { SessionStartRequest } from "./session-orchestrator.js";
@@ -20,9 +27,10 @@ export type ClientBootShell = {
 export function mountClientBootShell(options: {
   appRoot: HTMLElement;
   resolution: SessionEntryResolution;
+  settingsStore: ClientSettingsStore;
   onStartSession?: (request: SessionStartRequest) => void;
 }): ClientBootShell {
-  const { appRoot, onStartSession, resolution } = options;
+  const { appRoot, onStartSession, resolution, settingsStore } = options;
   const shell = document.createElement("div");
   shell.className = "client-shell";
 
@@ -57,6 +65,117 @@ export function mountClientBootShell(options: {
   preGameDetail.className = "pregame-detail";
   preGameDetail.textContent =
     "Jump into solo play immediately, while the room-based multiplayer path stays visible from the same screen.";
+
+  const settingsSection = document.createElement("section");
+  settingsSection.className = "pregame-settings";
+  settingsSection.setAttribute("aria-label", "Player and audio settings");
+
+  const settingsHeading = document.createElement("h2");
+  settingsHeading.className = "pregame-settings-heading";
+  settingsHeading.textContent = "Player & audio";
+
+  const displayNameLabel = document.createElement("label");
+  displayNameLabel.className = "pregame-settings-label";
+  displayNameLabel.htmlFor = "pregame-display-name";
+  displayNameLabel.textContent = "Display name";
+
+  const displayNameInput = document.createElement("input");
+  displayNameInput.id = "pregame-display-name";
+  displayNameInput.className = "pregame-settings-input";
+  displayNameInput.type = "text";
+  displayNameInput.autocomplete = "off";
+  displayNameInput.spellcheck = false;
+  displayNameInput.maxLength = DISPLAY_NAME_MAX_LENGTH;
+  displayNameInput.placeholder = "Optional — shown in multiplayer";
+  displayNameInput.setAttribute(
+    "aria-describedby",
+    "pregame-display-name-hint"
+  );
+
+  const displayNameHint = document.createElement("p");
+  displayNameHint.id = "pregame-display-name-hint";
+  displayNameHint.className = "pregame-settings-hint";
+  displayNameHint.textContent = `Up to ${DISPLAY_NAME_MAX_LENGTH} characters. Saved locally on this device.`;
+
+  const displayNameField = document.createElement("div");
+  displayNameField.className = "pregame-settings-field";
+  displayNameField.append(displayNameLabel, displayNameInput, displayNameHint);
+
+  const volumeLabel = document.createElement("label");
+  volumeLabel.className = "pregame-settings-label";
+  volumeLabel.htmlFor = "pregame-volume";
+  volumeLabel.textContent = "Volume";
+
+  const volumeInput = document.createElement("input");
+  volumeInput.id = "pregame-volume";
+  volumeInput.className = "pregame-settings-volume";
+  volumeInput.type = "range";
+  volumeInput.min = "0";
+  volumeInput.max = "100";
+  volumeInput.step = "1";
+
+  const muteCheckbox = document.createElement("input");
+  muteCheckbox.id = "pregame-mute";
+  muteCheckbox.className = "pregame-settings-mute";
+  muteCheckbox.type = "checkbox";
+
+  const muteLabel = document.createElement("label");
+  muteLabel.className = "pregame-settings-mute-label";
+  muteLabel.append(muteCheckbox, document.createTextNode(" Mute"));
+
+  const audioRow = document.createElement("div");
+  audioRow.className = "pregame-settings-audio-row";
+  audioRow.append(volumeLabel, volumeInput, muteLabel);
+
+  const syncSettingsInputsFromStore = () => {
+    const settings = settingsStore.getSettings();
+    displayNameInput.value = settings.displayName ?? "";
+    volumeInput.value = String(Math.round(settings.audio.volume * 100));
+    muteCheckbox.checked = settings.audio.muted;
+  };
+
+  syncSettingsInputsFromStore();
+
+  displayNameInput.addEventListener("input", () => {
+    if (displayNameInput.value.length > DISPLAY_NAME_MAX_LENGTH) {
+      displayNameInput.value = displayNameInput.value.slice(
+        0,
+        DISPLAY_NAME_MAX_LENGTH
+      );
+    }
+  });
+
+  displayNameInput.addEventListener("blur", () => {
+    const trimmed = displayNameInput.value.trim();
+    if (trimmed === "") {
+      settingsStore.patchSettings({ displayName: null });
+      displayNameInput.value = "";
+      return;
+    }
+
+    const parsed = displayNameSchema.safeParse(trimmed);
+    if (parsed.success) {
+      settingsStore.patchSettings({ displayName: parsed.data });
+      displayNameInput.value = parsed.data;
+      return;
+    }
+
+    syncSettingsInputsFromStore();
+  });
+
+  volumeInput.addEventListener("input", () => {
+    const raw = Number(volumeInput.value);
+    const nextVolume = Number.isFinite(raw)
+      ? Math.max(0, Math.min(1, raw / 100))
+      : 0;
+    settingsStore.patchSettings({ audio: { volume: nextVolume } });
+  });
+
+  muteCheckbox.addEventListener("change", () => {
+    settingsStore.patchSettings({ audio: { muted: muteCheckbox.checked } });
+  });
+
+  settingsSection.append(settingsHeading, displayNameField, audioRow);
 
   const actionGroup = document.createElement("div");
   actionGroup.className = "pregame-actions";
@@ -201,6 +320,7 @@ export function mountClientBootShell(options: {
     preGameEyebrow,
     preGameTitle,
     preGameDetail,
+    settingsSection,
     actionGroup,
     preGameFooter
   );
@@ -265,6 +385,10 @@ export function mountClientBootShell(options: {
     joinByCodeAction.disabled = hasPendingStart;
     joinByCodeAction.textContent =
       mode === "join-by-code" ? "Joining..." : "Join Room";
+
+    displayNameInput.disabled = hasPendingStart;
+    volumeInput.disabled = hasPendingStart;
+    muteCheckbox.disabled = hasPendingStart;
   };
 
   resizeCanvases();

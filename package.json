@@ -19,6 +19,7 @@
     "eslint": "^10.2.0",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.4.0",
+    "happy-dom": "^17.6.3",
     "prettier": "^3.8.1",
     "socket.io-client": "^4.8.3",
     "tsx": "^4.21.0",

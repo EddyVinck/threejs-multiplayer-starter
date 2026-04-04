@@ -121,6 +121,85 @@ body {
   font-size: 0.98rem;
 }
 
+.pregame-settings {
+  margin-top: 1.25rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(146, 188, 255, 0.18);
+  border-radius: 0.9rem;
+  background: rgba(12, 18, 30, 0.55);
+  display: grid;
+  gap: 0.85rem;
+}
+
+.pregame-settings-heading {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(146, 188, 255, 0.95);
+}
+
+.pregame-settings-field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.pregame-settings-label {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: rgba(246, 247, 251, 0.92);
+}
+
+.pregame-settings-input {
+  min-width: 0;
+  border: 1px solid rgba(146, 188, 255, 0.22);
+  border-radius: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  background: rgba(6, 10, 18, 0.74);
+  color: inherit;
+  font: inherit;
+}
+
+.pregame-settings-input::placeholder {
+  color: rgba(246, 247, 251, 0.38);
+}
+
+.pregame-settings-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: rgba(246, 247, 251, 0.55);
+  line-height: 1.35;
+}
+
+.pregame-settings-audio-row {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.pregame-settings-volume {
+  width: 100%;
+  accent-color: #89f3b5;
+  cursor: pointer;
+}
+
+.pregame-settings-mute-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  color: rgba(246, 247, 251, 0.88);
+}
+
+.pregame-settings-mute {
+  width: 1.05rem;
+  height: 1.05rem;
+  accent-color: #89f3b5;
+  cursor: pointer;
+}
+
 .pregame-actions {
   display: grid;
   gap: 0.75rem;

@@ -33,6 +33,7 @@ const initialSessionRequest = applyPersistedDisplayName(
 const bootShell = mountClientBootShell({
   appRoot: app,
   resolution: initialSessionEntry,
+  settingsStore,
   onStartSession: (request) => {
     void startSession(request);
   }

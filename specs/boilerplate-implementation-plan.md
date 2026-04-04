@@ -34,7 +34,7 @@
 
 - [x] P1: Build the lightweight DOM/CSS UI shell with a small pre-game screen, single-player as the primary CTA, and multiplayer actions visible but secondary.
 - [x] P1: Add create room, quick join, and join-by-code flows to the UI shell, including room-link handling via URL parameters.
-- [ ] P1: Add local player name editing and settings controls to the UI shell with persistence integration.
+- [x] P1: Add local player name editing and settings controls to the UI shell with persistence integration.
 - [ ] P1: Add a minimal in-game HUD showing score, round timer, and room state relevant to the current mode.
 
 - [ ] P2: Build the Web Audio API-based audio manager as a deep module with unlock-on-user-gesture behavior, master gain, mute, volume, and simple named playback hooks.
@@ -46,6 +46,8 @@
 - [ ] P2: Review all deep module interfaces after the first end-to-end pass and simplify any surface area that became too chatty or leaked implementation details.
 
 ## Progress Log
+
+- 2026-04-04: Completed the pre-game settings P1 task by adding a **Player & audio** block to the boot shell with optional display-name editing (validated on blur, persisted via the existing settings store), a master volume range control, and a mute checkbox, wiring `mountClientBootShell` to accept `settingsStore` from `main.ts`, disabling those controls while a session start is pending, fixing `normalizeDisplayName` so explicit `null` clears the stored name instead of reverting to `defaultSettings.displayName`, adding `happy-dom` plus focused Vitest coverage in `boot-shell.test.ts`, and styling the block to match the existing pre-game panel. Files changed: `package.json`, `pnpm-lock.yaml`, `packages/client/src/boot-shell.ts`, `packages/client/src/boot-shell.test.ts`, `packages/client/src/main.ts`, `packages/client/src/persistence.ts`, `packages/client/src/styles.css`, and `specs/boilerplate-implementation-plan.md`. Checks run: `pnpm test` passed, `pnpm typecheck` passed, and `pnpm lint` passed. Next recommended task: add a minimal in-game HUD showing score, round timer, and room state relevant to the current mode.
 
 - 2026-04-04: Completed the multiplayer-entry UI-shell P1 task by turning the pre-game shell's placeholder multiplayer affordances into real `Quick Join`, `Create Room`, and `Join Room` flows, adding an inline room-code entry form that preserves invite-link codes for retry after failed auto-starts, introducing request-specific boot-state messaging while session startup is pending, and syncing the browser URL query back to the authoritative joined room code so shareable room links stay current after multiplayer entry. Files changed: `packages/client/src/boot-shell.ts`, `packages/client/src/boot-status.ts`, `packages/client/src/boot-status.test.ts`, `packages/client/src/main.ts`, `packages/client/src/room-link.ts`, `packages/client/src/room-link.test.ts`, `packages/client/src/styles.css`, and `specs/boilerplate-implementation-plan.md`. Checks run: `pnpm exec vitest run packages/client/src/boot-status.test.ts packages/client/src/room-link.test.ts` passed, `pnpm typecheck` passed, and `pnpm lint` passed. Next recommended task: add local player name editing and settings controls to the UI shell with persistence integration.
 

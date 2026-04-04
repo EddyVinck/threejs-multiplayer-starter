@@ -266,8 +266,12 @@ function normalizeDisplayName(
   value: unknown,
   fallbackValue: string | null
 ): string | null {
-  if (value === null || value === undefined || value === "") {
+  if (value === undefined) {
     return fallbackValue;
+  }
+
+  if (value === null || value === "") {
+    return null;
   }
 
   const parsed = displayNameSchema.safeParse(value);
