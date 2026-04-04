@@ -321,4 +321,211 @@ describe("realtime transport", () => {
       await foundation.stop();
     }
   });
+
+  it("hydrates late joiners with the current snapshot and continues live updates", async () => {
+    const foundation = createServerFoundation({
+      host: "127.0.0.1",
+      port: 0,
+      tickRate: 20,
+      logger
+    });
+    let nextPlayerId = 1;
+    const transport = createRealtimeTransport({
+      io: foundation.io,
+      tickLoop: foundation.tickLoop,
+      logger,
+      roomRegistryOptions: {
+        createRoomId: () => "room-1",
+        createPlayerId: () => `player-${nextPlayerId++}`,
+        createRoomCode: () => "AB2C3D"
+      }
+    });
+
+    let hostClient: ClientSocket | null = null;
+    let guestClient: ClientSocket | null = null;
+
+    try {
+      const address = await foundation.start();
+      foundation.tickLoop.stop();
+      const baseUrl = `http://127.0.0.1:${address.port}`;
+
+      hostClient = await connectClient(baseUrl);
+
+      const hostJoinedPromise = waitForEnvelope<{
+        payload: { playerId: string; roomId: string; roomCode: string; lateJoin: boolean };
+      }>(hostClient, serverEventTypes.sessionJoined);
+      const hostSnapshotPromise = waitForEnvelope<{
+        payload: {
+          roomId: string;
+          serverTick: number;
+          round: { phase: string; remainingMs: number };
+        };
+      }>(hostClient, serverEventTypes.roomSnapshotPushed);
+
+      hostClient.emit(
+        clientEventTypes.roomCreationRequested,
+        createMessageEnvelope(clientEventTypes.roomCreationRequested, {
+          displayName: "Host",
+          visibility: "private",
+          lateJoinAllowed: true
+        })
+      );
+
+      const hostJoined = await hostJoinedPromise;
+      const hostSnapshot = await hostSnapshotPromise;
+
+      expect(hostJoined.payload).toMatchObject({
+        playerId: "player-1",
+        roomId: "room-1",
+        roomCode: "AB2C3D",
+        lateJoin: false
+      });
+      expect(hostSnapshot.payload).toMatchObject({
+        roomId: "room-1",
+        serverTick: 0,
+        round: {
+          phase: "active"
+        }
+      });
+
+      const hostDeltaPromise = waitForEnvelope<{
+        payload: {
+          serverTick: number;
+          updatedPlayers: Array<{
+            playerId: string;
+            position: { x: number; y: number; z: number };
+          }>;
+        };
+      }>(hostClient, serverEventTypes.roomDeltaPushed);
+
+      hostClient.emit(
+        clientEventTypes.playerCommandSubmitted,
+        createMessageEnvelope(clientEventTypes.playerCommandSubmitted, {
+          roomId: "room-1",
+          playerId: "player-1",
+          command: {
+            sequence: 1,
+            deltaMs: 50,
+            move: { x: 1, y: 0, z: 0 },
+            look: { yaw: 45, pitch: 0 },
+            actions: {
+              jump: false,
+              primary: false,
+              secondary: false
+            }
+          }
+        })
+      );
+      foundation.tickLoop.tickOnce();
+
+      const hostDelta = await hostDeltaPromise;
+      const hostStateAfterMovement = hostDelta.payload.updatedPlayers.find(
+        (player) => player.playerId === "player-1"
+      );
+
+      expect(hostDelta.payload.serverTick).toBe(1);
+      expect(hostStateAfterMovement?.position.x).toBeGreaterThan(0);
+
+      guestClient = await connectClient(baseUrl);
+
+      const guestJoinedPromise = waitForEnvelope<{
+        payload: { playerId: string; roomId: string; roomCode: string; lateJoin: boolean };
+      }>(guestClient, serverEventTypes.sessionJoined);
+      const guestSnapshotPromise = waitForEnvelope<{
+        payload: {
+          roomId: string;
+          roomCode: string;
+          serverTick: number;
+          round: { phase: string; remainingMs: number };
+          players: Array<{
+            playerId: string;
+            displayName: string;
+            connected: boolean;
+            position: { x: number; y: number; z: number };
+          }>;
+        };
+      }>(guestClient, serverEventTypes.roomSnapshotPushed);
+
+      guestClient.emit(
+        clientEventTypes.roomJoinRequested,
+        createMessageEnvelope(clientEventTypes.roomJoinRequested, {
+          roomCode: "ab-2c3d",
+          displayName: "Guest"
+        })
+      );
+
+      const guestJoined = await guestJoinedPromise;
+      const guestSnapshot = await guestSnapshotPromise;
+      const authoritativeSnapshotOnJoin =
+        transport.roomRegistry.getRoomById("room-1")?.exportSnapshot() ?? null;
+
+      expect(guestJoined.payload).toMatchObject({
+        playerId: "player-2",
+        roomId: "room-1",
+        roomCode: "AB2C3D",
+        lateJoin: true
+      });
+      expect(authoritativeSnapshotOnJoin).not.toBeNull();
+      expect(guestSnapshot.payload).toMatchObject({
+        roomId: "room-1",
+        roomCode: "AB2C3D",
+        serverTick: authoritativeSnapshotOnJoin?.serverTick,
+        round: {
+          phase: "active"
+        }
+      });
+      expect(guestSnapshot.payload.players).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            playerId: "player-1",
+            displayName: "Host",
+            connected: true,
+            position: hostStateAfterMovement?.position
+          }),
+          expect.objectContaining({
+            playerId: "player-2",
+            displayName: "Guest",
+            connected: true
+          })
+        ])
+      );
+
+      const guestDeltaPromise = waitForEnvelope<{
+        payload: {
+          serverTick: number;
+          round?: { phase: string; remainingMs: number };
+          updatedPlayers: Array<{ playerId: string }>;
+        };
+      }>(guestClient, serverEventTypes.roomDeltaPushed);
+
+      foundation.tickLoop.tickOnce();
+
+      const guestDelta = await guestDeltaPromise;
+
+      expect(guestDelta.payload.serverTick).toBeGreaterThan(
+        guestSnapshot.payload.serverTick
+      );
+      expect(guestDelta.payload.round).toMatchObject({
+        phase: "active"
+      });
+      expect(guestDelta.payload.round?.remainingMs).toBeLessThan(
+        guestSnapshot.payload.round.remainingMs
+      );
+      expect(guestDelta.payload.updatedPlayers).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            playerId: "player-1"
+          }),
+          expect.objectContaining({
+            playerId: "player-2"
+          })
+        ])
+      );
+    } finally {
+      hostClient?.disconnect();
+      guestClient?.disconnect();
+      transport.stop();
+      await foundation.stop();
+    }
+  });
 });
