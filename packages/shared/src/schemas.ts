@@ -115,7 +115,20 @@ const arenaLayoutSnapshotSchema = z.object({
         kind: z.enum(["score-orb"])
       })
     )
-    .min(1)
+    .min(1),
+  structures: z
+    .array(
+      z.object({
+        structureId: entityIdSchema,
+        position: vector3Schema,
+        size: z.object({
+          width: z.number().positive(),
+          height: z.number().positive(),
+          depth: z.number().positive()
+        })
+      })
+    )
+    .default([])
 });
 
 export const roomSnapshotSchema = z.object({

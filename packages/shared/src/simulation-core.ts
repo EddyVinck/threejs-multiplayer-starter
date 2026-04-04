@@ -14,6 +14,7 @@ import {
 import {
   authoritativeRoomStateSchema,
   defaultSimulationRules,
+  resolveArenaMotion,
   resolvePlayerVelocity,
   simulationRulesSchema,
   type ArenaLayout,
@@ -112,10 +113,6 @@ function ticksFromMs(durationMs: number, tickRate: number): number {
 
 function ticksToMs(ticks: number, tickRate: number): number {
   return Math.max(0, Math.round((ticks * 1000) / tickRate));
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
 }
 
 function vectorLengthSquared(vector: Vector3): number {
@@ -391,17 +388,6 @@ export function createSimulationCore(
     });
   }
 
-  function clampPosition(position: Vector3): Vector3 {
-    const halfWidth = state.arena.bounds.width / 2;
-    const halfDepth = state.arena.bounds.depth / 2;
-
-    return {
-      x: clamp(position.x, -halfWidth, halfWidth),
-      y: clamp(position.y, 0, state.arena.bounds.height),
-      z: clamp(position.z, -halfDepth, halfDepth)
-    };
-  }
-
   function updatePlayerMovement(player: SimulationPlayerState): void {
     const command = latestCommands.get(player.playerId);
     const deltaSeconds = 1 / state.rules.tickRate;
@@ -415,11 +401,16 @@ export function createSimulationCore(
     }
 
     const nextVelocity = resolvePlayerVelocity(command.move);
-    const nextPosition = clampPosition({
-      x: player.position.x + nextVelocity.x * deltaSeconds,
-      y: player.position.y + nextVelocity.y * deltaSeconds,
-      z: player.position.z + nextVelocity.z * deltaSeconds
-    });
+    const nextPosition = resolveArenaMotion({
+      currentPosition: player.position,
+      desiredTranslation: {
+        x: nextVelocity.x * deltaSeconds,
+        y: nextVelocity.y * deltaSeconds,
+        z: nextVelocity.z * deltaSeconds
+      },
+      arena: state.arena,
+      collisionRadius: state.rules.playerCollisionRadius
+    }).nextPosition;
 
     if (!areVectorsEqual(player.velocity, nextVelocity)) {
       player.velocity = nextVelocity;

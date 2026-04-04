@@ -32,7 +32,8 @@ const arena: ArenaLayout = {
       position: { x: 1, y: 1, z: 0 },
       kind: "score-orb"
     }
-  ]
+  ],
+  structures: []
 };
 
 const soloArena: ArenaLayout = {
@@ -53,6 +54,73 @@ const soloArena: ArenaLayout = {
       pickupId: "pickup-1",
       position: { x: 0.5, y: 1, z: 0 },
       kind: "score-orb"
+    }
+  ],
+  structures: []
+};
+
+const structuredArena: ArenaLayout = {
+  bounds: {
+    width: 24,
+    height: 8,
+    depth: 24
+  },
+  playerSpawns: [
+    {
+      spawnId: "spawn-player-1",
+      position: { x: -4, y: 1, z: 0 },
+      yaw: 0
+    }
+  ],
+  pickupSpawns: [
+    {
+      pickupId: "pickup-1",
+      position: { x: 6, y: 1, z: 0 },
+      kind: "score-orb"
+    }
+  ],
+  structures: [
+    {
+      structureId: "center-block",
+      position: { x: 0, y: 1, z: 0 },
+      size: {
+        width: 2,
+        height: 2,
+        depth: 2
+      }
+    }
+  ]
+};
+
+const structureEdgeArena: ArenaLayout = {
+  bounds: {
+    width: 24,
+    height: 8,
+    depth: 24
+  },
+  playerSpawns: [
+    {
+      spawnId: "spawn-player-1",
+      position: { x: -1.75, y: 1, z: -2.2 },
+      yaw: 0
+    }
+  ],
+  pickupSpawns: [
+    {
+      pickupId: "pickup-1",
+      position: { x: 6, y: 1, z: 0 },
+      kind: "score-orb"
+    }
+  ],
+  structures: [
+    {
+      structureId: "center-block",
+      position: { x: 0, y: 1, z: 0 },
+      size: {
+        width: 2,
+        height: 2,
+        depth: 2
+      }
     }
   ]
 };
@@ -264,5 +332,79 @@ describe("simulation core", () => {
 
     expect(left.exportSnapshot()).toEqual(right.exportSnapshot());
     expect(left.getAuthoritativeState()).toEqual(right.getAuthoritativeState());
+  });
+
+  it("prevents authoritative movement from passing through arena structures", () => {
+    const core = createSimulationCore({
+      roomId: "room-1",
+      roomCode: "AB2C3D",
+      mode: "multiplayer",
+      visibility: "public",
+      lateJoinAllowed: true,
+      arena: structuredArena
+    });
+
+    core.upsertPlayer({
+      playerId: "player-1",
+      displayName: "Eddy"
+    });
+    core.exportDelta();
+
+    core.submitPlayerCommand("player-1", {
+      sequence: 1,
+      deltaMs: 50,
+      move: { x: 1, y: 0, z: 0 },
+      look: { yaw: 0, pitch: 0 },
+      actions: {
+        jump: false,
+        primary: false,
+        secondary: false
+      }
+    });
+
+    for (let step = 0; step < 20; step += 1) {
+      core.step();
+      core.exportDelta();
+    }
+
+    const player = core.exportSnapshot().players[0];
+    expect(player).toBeDefined();
+    expect(player?.position.x).toBeLessThanOrEqual(-1.75);
+  });
+
+  it("allows authoritative movement to slide along structure edges", () => {
+    const core = createSimulationCore({
+      roomId: "room-1",
+      roomCode: "AB2C3D",
+      mode: "multiplayer",
+      visibility: "public",
+      lateJoinAllowed: true,
+      arena: structureEdgeArena
+    });
+
+    core.upsertPlayer({
+      playerId: "player-1",
+      displayName: "Eddy"
+    });
+    core.exportDelta();
+
+    core.submitPlayerCommand("player-1", {
+      sequence: 1,
+      deltaMs: 50,
+      move: { x: 0, y: 0, z: 1 },
+      look: { yaw: 0, pitch: 0 },
+      actions: {
+        jump: false,
+        primary: false,
+        secondary: false
+      }
+    });
+
+    core.step();
+
+    const player = core.exportSnapshot().players[0];
+    expect(player).toBeDefined();
+    expect(player?.position.x).toBeCloseTo(-1.75, 5);
+    expect(player?.position.z).toBeGreaterThan(-2.2);
   });
 });

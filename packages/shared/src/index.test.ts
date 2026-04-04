@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   createMessageEnvelope,
+  defaultSampleArenaLayout,
   defaultSimulationRules,
   generateRoomCode,
   isValidRoomCode,
@@ -45,6 +46,13 @@ describe("shared contract kit", () => {
     expect(isValidRoomCode(code)).toBe(true);
   });
 
+  it("exports a shared sample arena with structures and pickup routes", () => {
+    expect(defaultSampleArenaLayout.structures).toHaveLength(5);
+    expect(defaultSampleArenaLayout.playerSpawns).toHaveLength(4);
+    expect(defaultSampleArenaLayout.pickupSpawns).toHaveLength(5);
+    expect(defaultSampleArenaLayout.structures[0]?.size.height).toBeGreaterThan(2);
+  });
+
   it("creates and validates versioned protocol envelopes", () => {
     const snapshot = roomSnapshotSchema.parse({
       roomId: "room-1",
@@ -72,6 +80,17 @@ describe("shared contract kit", () => {
             pickupId: "pickup-1",
             position: { x: 4, y: 1, z: 2 },
             kind: "score-orb"
+          }
+        ],
+        structures: [
+          {
+            structureId: "platform-center",
+            position: { x: 0, y: 1, z: 0 },
+            size: {
+              width: 6,
+              height: 2,
+              depth: 6
+            }
           }
         ]
       },
@@ -176,6 +195,17 @@ describe("shared contract kit", () => {
             pickupId: "spawn-pickup-1",
             position: { x: 4, y: 1, z: 0 },
             kind: "score-orb"
+          }
+        ],
+        structures: [
+          {
+            structureId: "platform-center",
+            position: { x: 0, y: 1, z: 0 },
+            size: {
+              width: 6,
+              height: 2,
+              depth: 6
+            }
           }
         ]
       },

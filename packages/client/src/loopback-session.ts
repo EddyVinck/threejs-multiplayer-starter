@@ -1,6 +1,7 @@
 import {
   createSimulationCore,
   defaultSimulationRules,
+  defaultSampleArenaLayout,
   displayNameSchema,
   playerIdSchema,
   roomCodeSchema,
@@ -30,32 +31,7 @@ const DEFAULT_LOOPBACK_PLAYER_ID = playerIdSchema.parse("local-player");
 const DEFAULT_LOOPBACK_DISPLAY_NAME = displayNameSchema.parse("Player 1");
 const DEFAULT_LOOPBACK_VISIBILITY: RoomVisibility = "private";
 
-const defaultLoopbackArena: ArenaLayout = {
-  bounds: {
-    width: 24,
-    height: 8,
-    depth: 24
-  },
-  playerSpawns: [
-    {
-      spawnId: "spawn-player-1",
-      position: { x: 0, y: 1, z: 0 },
-      yaw: 0
-    }
-  ],
-  pickupSpawns: [
-    {
-      pickupId: "pickup-center",
-      position: { x: 2, y: 1, z: 0 },
-      kind: "score-orb"
-    },
-    {
-      pickupId: "pickup-west",
-      position: { x: -2, y: 1, z: 0 },
-      kind: "score-orb"
-    }
-  ]
-};
+const defaultLoopbackArena: ArenaLayout = defaultSampleArenaLayout;
 
 export type LoopbackSessionOptions = {
   roomId?: RoomId;

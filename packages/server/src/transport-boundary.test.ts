@@ -114,7 +114,8 @@ describe("transport boundary validation", () => {
               position: { x: 4, y: 1, z: 0 },
               kind: "score-orb"
             }
-          ]
+          ],
+          structures: []
         },
         round: {
           phase: "active",

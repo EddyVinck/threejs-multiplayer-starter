@@ -35,6 +35,9 @@ describe("render scene adapter", () => {
     expect(renderer.setSizeSpy).toHaveBeenCalledWith(960, 540, false);
     expect(renderer.lastScene?.getObjectByName("arena-floor")).not.toBeUndefined();
     expect(renderer.lastScene?.getObjectByName("arena-bounds")).not.toBeUndefined();
+    expect(
+      renderer.lastScene?.getObjectByName("arena-structure:platform-center")
+    ).not.toBeUndefined();
     expect(renderer.lastScene?.getObjectByName("player:local-player")).not.toBeUndefined();
     expect(renderer.lastScene?.getObjectByName("player:remote-player")).not.toBeUndefined();
     expect(renderer.lastScene?.getObjectByName("pickup:pickup-center")?.visible).toBe(
@@ -169,6 +172,17 @@ function createSnapshot(): RoomSnapshot {
           pickupId: "pickup-west",
           position: { x: -2, y: 1, z: 0 },
           kind: "score-orb"
+        }
+      ],
+      structures: [
+        {
+          structureId: "platform-center",
+          position: { x: 6, y: 1, z: 6 },
+          size: {
+            width: 6,
+            height: 2,
+            depth: 6
+          }
         }
       ]
     },

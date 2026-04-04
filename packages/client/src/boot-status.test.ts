@@ -74,7 +74,8 @@ describe("boot status", () => {
               position: { x: 1, y: 0, z: 1 },
               kind: "score-orb"
             }
-          ]
+          ],
+          structures: []
         },
         round: {
           phase: "active",

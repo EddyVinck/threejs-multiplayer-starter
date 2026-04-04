@@ -52,7 +52,8 @@ function createSnapshot(
           position: { x: 2, y: 1, z: 0 },
           kind: "score-orb"
         }
-      ]
+      ],
+      structures: []
     },
     round: {
       phase: "active",

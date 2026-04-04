@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import {
   createRoomRequestSchema,
+  defaultSampleArenaLayout,
   defaultSimulationRules,
   displayNameSchema,
   generateRoomCode,
@@ -29,52 +30,7 @@ import type { GlobalAuthoritativeTickLoop } from "./server-foundation.js";
 const DEFAULT_EMPTY_ROOM_TTL_TICKS = defaultSimulationRules.tickRate * 30;
 const DEFAULT_ROOM_CODE_GENERATION_ATTEMPTS = 32;
 
-export const defaultRoomArena: ArenaLayout = {
-  bounds: {
-    width: 24,
-    height: 8,
-    depth: 24
-  },
-  playerSpawns: [
-    {
-      spawnId: "spawn-player-1",
-      position: { x: -4, y: 1, z: 0 },
-      yaw: 0
-    },
-    {
-      spawnId: "spawn-player-2",
-      position: { x: 4, y: 1, z: 0 },
-      yaw: 180
-    },
-    {
-      spawnId: "spawn-player-3",
-      position: { x: 0, y: 1, z: -4 },
-      yaw: 90
-    },
-    {
-      spawnId: "spawn-player-4",
-      position: { x: 0, y: 1, z: 4 },
-      yaw: 270
-    }
-  ],
-  pickupSpawns: [
-    {
-      pickupId: "pickup-center",
-      position: { x: 0, y: 1, z: 0 },
-      kind: "score-orb"
-    },
-    {
-      pickupId: "pickup-east",
-      position: { x: 6, y: 1, z: 0 },
-      kind: "score-orb"
-    },
-    {
-      pickupId: "pickup-west",
-      position: { x: -6, y: 1, z: 0 },
-      kind: "score-orb"
-    }
-  ]
-};
+export const defaultRoomArena: ArenaLayout = defaultSampleArenaLayout;
 
 export type RoomRuntimeErrorCode = Extract<
   ProtocolErrorCode,

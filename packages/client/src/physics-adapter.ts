@@ -6,6 +6,7 @@ import {
   World
 } from "@dimforge/rapier3d/rapier.js";
 import {
+  resolveArenaMotion,
   type ArenaLayout,
   type EntityId,
   type PlayerId,
@@ -102,6 +103,7 @@ export function createPhysicsAdapter(options: PhysicsAdapterOptions): PhysicsAda
   world.timestep = timeStepSeconds;
   world.lengthUnit = 1;
   createArenaBoundaries(world, arenaBody, options.arena, colliderKinds);
+  createArenaStructures(world, arenaBody, options.arena, colliderKinds);
 
   return {
     step() {
@@ -148,19 +150,32 @@ export function createPhysicsAdapter(options: PhysicsAdapterOptions): PhysicsAda
       assertNotDisposed(disposed);
       const record = requirePlayerBody(playerBodies, playerId);
       const currentPosition = cloneVector(record.body.translation());
-      const hit = findClosestMotionBlocker({
-        playerId,
+      const arenaMotion = resolveArenaMotion({
         currentPosition,
         desiredTranslation,
         arena: options.arena,
+        collisionRadius: playerRadius,
+        boundsPadding: playerRadius
+      });
+      const constrainedTranslation = subtractVector(
+        arenaMotion.nextPosition,
+        currentPosition
+      );
+      const hit = findClosestMotionBlocker({
+        playerId,
+        currentPosition,
+        desiredTranslation: constrainedTranslation,
         playerRadius,
-        playerBodies,
+        playerBodies
       });
       const travelFraction =
         hit === null
           ? 1
           : Math.max(0, Math.min(1, hit.timeOfImpact - MOTION_SAFETY_MARGIN));
-      const nextPosition = addScaledVector(currentPosition, desiredTranslation, travelFraction);
+      const nextPosition =
+        hit === null
+          ? arenaMotion.nextPosition
+          : addScaledVector(currentPosition, constrainedTranslation, travelFraction);
       const nextVelocity = scaleVector(desiredTranslation, 1 / timeStepSeconds);
 
       record.body.setNextKinematicTranslation(nextPosition);
@@ -170,7 +185,7 @@ export function createPhysicsAdapter(options: PhysicsAdapterOptions): PhysicsAda
 
       return {
         nextPosition,
-        blocked: travelFraction < 1,
+        blocked: arenaMotion.blocked || travelFraction < 1,
         blockingActorId: hit?.blockingActorId ?? null
       };
     },
@@ -291,6 +306,37 @@ function createArenaBoundaries(
   return colliders;
 }
 
+function createArenaStructures(
+  world: World,
+  body: ReturnType<World["createRigidBody"]>,
+  arena: ArenaLayout,
+  colliderKinds: Map<number, ColliderKind>
+): Array<ReturnType<World["createCollider"]>> {
+  const colliders: Array<ReturnType<World["createCollider"]>> = [];
+
+  for (const structure of arena.structures) {
+    const collider = world.createCollider(
+      ColliderDesc.cuboid(
+        structure.size.width / 2,
+        structure.size.height / 2,
+        structure.size.depth / 2
+      ).setTranslation(
+        structure.position.x,
+        structure.position.y,
+        structure.position.z
+      ),
+      body
+    );
+    colliders.push(collider);
+    colliderKinds.set(collider.handle, {
+      type: "arena",
+      actorId: null
+    });
+  }
+
+  return colliders;
+}
+
 function createPlayerBody(
   world: World,
   playerId: PlayerId,
@@ -350,7 +396,6 @@ function findClosestMotionBlocker(options: {
   playerId: PlayerId;
   currentPosition: Vector3;
   desiredTranslation: Vector3;
-  arena: ArenaLayout;
   playerRadius: number;
   playerBodies: ReadonlyMap<PlayerId, PlayerBodyRecord>;
 }):
@@ -365,19 +410,6 @@ function findClosestMotionBlocker(options: {
         blockingActorId: PlayerId | null;
       }
     | null = null;
-
-  const boundaryImpact = findArenaBoundaryImpactFraction(
-    options.currentPosition,
-    options.desiredTranslation,
-    options.arena,
-    options.playerRadius
-  );
-  if (boundaryImpact !== null) {
-    closestHit = {
-      timeOfImpact: boundaryImpact,
-      blockingActorId: null
-    };
-  }
 
   for (const [otherPlayerId, otherPlayer] of options.playerBodies) {
     if (otherPlayerId === options.playerId) {
@@ -399,54 +431,6 @@ function findClosestMotionBlocker(options: {
   }
 
   return closestHit;
-}
-
-function findArenaBoundaryImpactFraction(
-  currentPosition: Vector3,
-  desiredTranslation: Vector3,
-  arena: ArenaLayout,
-  radius: number
-): number | null {
-  const minX = -(arena.bounds.width / 2) + radius;
-  const maxX = arena.bounds.width / 2 - radius;
-  const minY = radius;
-  const maxY = arena.bounds.height - radius;
-  const minZ = -(arena.bounds.depth / 2) + radius;
-  const maxZ = arena.bounds.depth / 2 - radius;
-
-  let closestHit: number | null = null;
-
-  closestHit = takeEarlierImpact(
-    closestHit,
-    findAxisBoundaryImpact(currentPosition.x, desiredTranslation.x, minX, maxX)
-  );
-  closestHit = takeEarlierImpact(
-    closestHit,
-    findAxisBoundaryImpact(currentPosition.y, desiredTranslation.y, minY, maxY)
-  );
-  closestHit = takeEarlierImpact(
-    closestHit,
-    findAxisBoundaryImpact(currentPosition.z, desiredTranslation.z, minZ, maxZ)
-  );
-
-  return closestHit;
-}
-
-function findAxisBoundaryImpact(
-  current: number,
-  delta: number,
-  min: number,
-  max: number
-): number | null {
-  if (delta > 0 && current + delta > max) {
-    return (max - current) / delta;
-  }
-
-  if (delta < 0 && current + delta < min) {
-    return (min - current) / delta;
-  }
-
-  return null;
 }
 
 function findSphereSweepImpactFraction(
@@ -482,18 +466,6 @@ function findSphereSweepImpactFraction(
   }
 
   return null;
-}
-
-function takeEarlierImpact(current: number | null, next: number | null): number | null {
-  if (next === null) {
-    return current;
-  }
-
-  if (current === null || next < current) {
-    return next;
-  }
-
-  return current;
 }
 
 function addScaledVector(base: Vector3, delta: Vector3, scale: number): Vector3 {

@@ -15,6 +15,8 @@ import { cloneSessionData } from "./session-snapshot.js";
 const FLOOR_COLOR = new THREE.Color("#0f172a");
 const FLOOR_GRID_COLOR = new THREE.Color("#2f4568");
 const ARENA_BOUNDS_COLOR = new THREE.Color("#4f78a8");
+const ARENA_STRUCTURE_COLOR = new THREE.Color("#334155");
+const ARENA_STRUCTURE_TRIM_COLOR = new THREE.Color("#7dd3fc");
 const LOCAL_PLAYER_COLOR = new THREE.Color("#7dd3fc");
 const REMOTE_PLAYER_COLOR = new THREE.Color("#f59e0b");
 const DISCONNECTED_PLAYER_COLOR = new THREE.Color("#64748b");
@@ -250,6 +252,52 @@ export function createRenderSceneAdapter(
       marker.name = `spawn:${spawn.spawnId}`;
       marker.position.set(spawn.position.x, 0.06, spawn.position.z);
       spawnMarkers.add(marker);
+    }
+
+    const structures = new THREE.Group();
+    structures.name = "arena-structures";
+    arenaRoot.add(structures);
+
+    for (const structure of snapshot.arena.structures) {
+      const structureRoot = new THREE.Group();
+      structureRoot.name = `arena-structure:${structure.structureId}`;
+      structureRoot.position.set(
+        structure.position.x,
+        structure.position.y,
+        structure.position.z
+      );
+
+      const body = new THREE.Mesh(
+        new THREE.BoxGeometry(
+          structure.size.width,
+          structure.size.height,
+          structure.size.depth
+        ),
+        new THREE.MeshStandardMaterial({
+          color: ARENA_STRUCTURE_COLOR,
+          roughness: 0.92,
+          metalness: 0.06
+        })
+      );
+      body.name = `${structureRoot.name}:body`;
+      structureRoot.add(body);
+
+      const trim = new THREE.LineSegments(
+        new THREE.EdgesGeometry(
+          new THREE.BoxGeometry(
+            structure.size.width,
+            structure.size.height,
+            structure.size.depth
+          )
+        ),
+        new THREE.LineBasicMaterial({
+          color: ARENA_STRUCTURE_TRIM_COLOR
+        })
+      );
+      trim.name = `${structureRoot.name}:trim`;
+      structureRoot.add(trim);
+
+      structures.add(structureRoot);
     }
   }
 

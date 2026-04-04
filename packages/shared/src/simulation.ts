@@ -74,10 +74,21 @@ export const pickupSpawnPointSchema = z.object({
   kind: pickupKindSchema
 });
 
+export const arenaStructureSchema = z.object({
+  structureId: entityIdSchema,
+  position: vector3Schema,
+  size: z.object({
+    width: positiveNumberSchema,
+    height: positiveNumberSchema,
+    depth: positiveNumberSchema
+  })
+});
+
 export const arenaLayoutSchema = z.object({
   bounds: arenaBoundsSchema,
   playerSpawns: z.array(playerSpawnPointSchema).min(1),
-  pickupSpawns: z.array(pickupSpawnPointSchema).min(1)
+  pickupSpawns: z.array(pickupSpawnPointSchema).min(1),
+  structures: z.array(arenaStructureSchema).default([])
 });
 
 export const roundResetStateSchema = z.object({
@@ -157,12 +168,18 @@ export type SimulationRules = z.infer<typeof simulationRulesSchema>;
 export type ArenaBounds = z.infer<typeof arenaBoundsSchema>;
 export type PlayerSpawnPoint = z.infer<typeof playerSpawnPointSchema>;
 export type PickupSpawnPoint = z.infer<typeof pickupSpawnPointSchema>;
+export type ArenaStructure = z.infer<typeof arenaStructureSchema>;
 export type ArenaLayout = z.infer<typeof arenaLayoutSchema>;
 export type RoundResetState = z.infer<typeof roundResetStateSchema>;
 export type RoundTimerState = z.infer<typeof roundTimerStateSchema>;
 export type SimulationPlayerState = z.infer<typeof simulationPlayerStateSchema>;
 export type SimulationPickupState = z.infer<typeof simulationPickupStateSchema>;
 export type AuthoritativeRoomState = z.infer<typeof authoritativeRoomStateSchema>;
+
+export type ArenaMotionResolution = {
+  nextPosition: Vector3;
+  blocked: boolean;
+};
 
 export function resolvePlayerVelocity(
   move: {
@@ -178,6 +195,71 @@ export function resolvePlayerVelocity(
     x: normalizedMove.x * speed,
     y: normalizedMove.y * speed,
     z: normalizedMove.z * speed
+  };
+}
+
+export function resolveArenaMotion(options: {
+  currentPosition: Vector3;
+  desiredTranslation: Vector3;
+  arena: ArenaLayout;
+  collisionRadius: number;
+  boundsPadding?: number;
+}): ArenaMotionResolution {
+  const boundsPadding = options.boundsPadding ?? 0;
+  let nextPosition = clampPositionToArena(
+    addVector(options.currentPosition, options.desiredTranslation),
+    options.arena,
+    boundsPadding
+  );
+  let blocked = !areVectorsEqual(nextPosition, addVector(options.currentPosition, options.desiredTranslation));
+
+  if (
+    !overlapsAnyArenaStructure(
+      nextPosition,
+      options.arena,
+      options.collisionRadius
+    )
+  ) {
+    return {
+      nextPosition,
+      blocked
+    };
+  }
+
+  nextPosition = options.currentPosition;
+
+  for (const axis of ["x", "y", "z"] as const) {
+    const axisTranslation = options.desiredTranslation[axis];
+    if (axisTranslation === 0) {
+      continue;
+    }
+
+    const candidate = clampPositionToArena(
+      {
+        ...nextPosition,
+        [axis]: nextPosition[axis] + axisTranslation
+      },
+      options.arena,
+      boundsPadding
+    );
+
+    if (
+      overlapsAnyArenaStructure(
+        candidate,
+        options.arena,
+        options.collisionRadius
+      )
+    ) {
+      blocked = true;
+      continue;
+    }
+
+    nextPosition = candidate;
+  }
+
+  return {
+    nextPosition,
+    blocked
   };
 }
 
@@ -202,4 +284,67 @@ function normalizeMovementInput(vector: {
     y: vector.y / length,
     z: vector.z / length
   };
+}
+
+function addVector(left: Vector3, right: Vector3): Vector3 {
+  return {
+    x: left.x + right.x,
+    y: left.y + right.y,
+    z: left.z + right.z
+  };
+}
+
+function areVectorsEqual(left: Vector3, right: Vector3): boolean {
+  return left.x === right.x && left.y === right.y && left.z === right.z;
+}
+
+function clampPositionToArena(
+  position: Vector3,
+  arena: ArenaLayout,
+  boundsPadding: number
+): Vector3 {
+  const halfWidth = arena.bounds.width / 2;
+  const halfDepth = arena.bounds.depth / 2;
+
+  return {
+    x: clamp(position.x, -(halfWidth - boundsPadding), halfWidth - boundsPadding),
+    y: clamp(position.y, boundsPadding, arena.bounds.height - boundsPadding),
+    z: clamp(position.z, -(halfDepth - boundsPadding), halfDepth - boundsPadding)
+  };
+}
+
+function overlapsAnyArenaStructure(
+  position: Vector3,
+  arena: ArenaLayout,
+  collisionRadius: number
+): boolean {
+  return arena.structures.some((structure) =>
+    overlapsArenaStructure(position, structure, collisionRadius)
+  );
+}
+
+function overlapsArenaStructure(
+  position: Vector3,
+  structure: ArenaStructure,
+  collisionRadius: number
+): boolean {
+  const minX = structure.position.x - structure.size.width / 2 - collisionRadius;
+  const maxX = structure.position.x + structure.size.width / 2 + collisionRadius;
+  const minY = structure.position.y - structure.size.height / 2 - collisionRadius;
+  const maxY = structure.position.y + structure.size.height / 2 + collisionRadius;
+  const minZ = structure.position.z - structure.size.depth / 2 - collisionRadius;
+  const maxZ = structure.position.z + structure.size.depth / 2 + collisionRadius;
+
+  return (
+    position.x > minX &&
+    position.x < maxX &&
+    position.y > minY &&
+    position.y < maxY &&
+    position.z > minZ &&
+    position.z < maxZ
+  );
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
 }
