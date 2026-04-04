@@ -15,13 +15,13 @@ const ZERO_VECTOR: Vector3 = {
   y: 0,
   z: 0
 };
-
-type IntervalHandle = ReturnType<typeof globalThis.setInterval>;
+const MAX_PREDICTION_STEP_SECONDS = 0.1;
 
 export type MovementRuntime = {
   syncAuthoritativeSnapshot(snapshot: RoomSnapshot, localPlayerId: PlayerId): void;
   submitPlayerCommand(command: PlayerCommand): void;
   getSnapshot(): RoomSnapshot | null;
+  advance(deltaSeconds: number): void;
   start(): void;
   stop(): void;
   isRunning(): boolean;
@@ -34,24 +34,9 @@ export function createMovementRuntime(): MovementRuntime {
   let latestCommand: PlayerCommand | null = null;
   let physics: PhysicsAdapter | null = null;
   let physicsConfigKey: string | null = null;
-  let intervalHandle: IntervalHandle | null = null;
   let shouldRun = false;
   let syncedPlayerIds = new Set<PlayerId>();
   let syncedPickupIds = new Set<string>();
-
-  function refreshTicker(): void {
-    if (intervalHandle !== null) {
-      globalThis.clearInterval(intervalHandle);
-      intervalHandle = null;
-    }
-
-    if (!shouldRun || currentSnapshot === null) {
-      return;
-    }
-
-    const intervalMs = Math.max(1, Math.round(1000 / currentSnapshot.rules.tickRate));
-    intervalHandle = globalThis.setInterval(stepPrediction, intervalMs);
-  }
 
   function resetPhysics(snapshot: RoomSnapshot): PhysicsAdapter {
     physics?.dispose();
@@ -115,8 +100,14 @@ export function createMovementRuntime(): MovementRuntime {
     syncedPickupIds = nextPickupIds;
   }
 
-  function stepPrediction(): void {
-    if (currentSnapshot === null || localPlayerId === null) {
+  function stepPrediction(deltaSeconds: number): void {
+    if (!shouldRun || currentSnapshot === null || localPlayerId === null) {
+      return;
+    }
+    const safeDeltaSeconds = Number.isFinite(deltaSeconds)
+      ? Math.max(0, Math.min(deltaSeconds, MAX_PREDICTION_STEP_SECONDS))
+      : 0;
+    if (safeDeltaSeconds <= 0) {
       return;
     }
 
@@ -131,10 +122,7 @@ export function createMovementRuntime(): MovementRuntime {
     const nextYaw = latestCommand?.look.yaw ?? localPlayer.yaw;
     const nextVelocity =
       latestCommand === null ? ZERO_VECTOR : resolvePlayerVelocity(latestCommand.move, nextYaw);
-    const desiredTranslation = scaleVector(
-      nextVelocity,
-      1 / currentSnapshot.rules.tickRate
-    );
+    const desiredTranslation = scaleVector(nextVelocity, safeDeltaSeconds);
     const motion = nextPhysics.movePlayer(localPlayerId, desiredTranslation);
 
     localPlayer.position = motion.nextPosition;
@@ -148,7 +136,6 @@ export function createMovementRuntime(): MovementRuntime {
       currentSnapshot = cloneSessionData(snapshot);
       ensurePhysics(currentSnapshot);
       syncPhysicsState(currentSnapshot);
-      refreshTicker();
     },
 
     submitPlayerCommand(command) {
@@ -159,29 +146,24 @@ export function createMovementRuntime(): MovementRuntime {
       return currentSnapshot === null ? null : cloneSessionData(currentSnapshot);
     },
 
+    advance(deltaSeconds) {
+      stepPrediction(deltaSeconds);
+    },
+
     start() {
       shouldRun = true;
-      refreshTicker();
     },
 
     stop() {
       shouldRun = false;
-      if (intervalHandle !== null) {
-        globalThis.clearInterval(intervalHandle);
-        intervalHandle = null;
-      }
     },
 
     isRunning() {
-      return intervalHandle !== null;
+      return shouldRun;
     },
 
     dispose() {
       shouldRun = false;
-      if (intervalHandle !== null) {
-        globalThis.clearInterval(intervalHandle);
-        intervalHandle = null;
-      }
       physics?.dispose();
       physics = null;
       physicsConfigKey = null;

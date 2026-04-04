@@ -56,8 +56,6 @@ describe("render scene adapter", () => {
   });
 
   it("uses the movement runtime for local prediction between snapshots", () => {
-    vi.useFakeTimers();
-
     const canvas = createCanvasStub(800, 450);
     const renderer = createFakeRenderer();
     const adapter = createRenderSceneAdapter({
@@ -75,13 +73,61 @@ describe("render scene adapter", () => {
 
     adapter.start();
     adapter.submitPlayerCommand(createMoveRightCommand());
-    vi.advanceTimersByTime(55);
-    adapter.renderFrame(55);
+    adapter.renderFrame(25);
 
     const predictedPlayer = renderer.lastScene?.getObjectByName("player:local-player");
-    expect(predictedPlayer?.position.x).toBeGreaterThan(initialX + 0.2);
+    expect(predictedPlayer?.position.x).toBeGreaterThan(initialX);
 
     adapter.stop();
+    adapter.dispose();
+  });
+
+  it("interpolates remote players between authoritative snapshots", () => {
+    let now = 0;
+    const canvas = createCanvasStub(800, 450);
+    const renderer = createFakeRenderer();
+    const adapter = createRenderSceneAdapter({
+      canvas,
+      clock: () => now,
+      createRenderer: () => renderer
+    });
+
+    adapter.syncSessionJoined(createJoined());
+    adapter.syncAuthoritativeSnapshot(createSnapshot());
+    adapter.renderFrame(0);
+
+    now = 50;
+    adapter.syncAuthoritativeSnapshot(
+      createSnapshot({
+        serverTick: 13,
+        players: [
+          {
+            playerId: "local-player",
+            displayName: "Player 1",
+            position: { x: 0, y: 1, z: 0 },
+            velocity: { x: 0, y: 0, z: 0 },
+            yaw: 0,
+            score: 0,
+            connected: true
+          },
+          {
+            playerId: "remote-player",
+            displayName: "Player 2",
+            position: { x: 6, y: 1, z: 0 },
+            velocity: { x: 0, y: 0, z: 0 },
+            yaw: Math.PI / 2,
+            score: 1,
+            connected: true
+          }
+        ]
+      })
+    );
+
+    adapter.renderFrame(75);
+
+    const interpolatedRemote = renderer.lastScene?.getObjectByName("player:remote-player");
+    expect(interpolatedRemote?.position.x).toBeCloseTo(5, 5);
+
     adapter.dispose();
   });
 });
@@ -130,8 +176,8 @@ function createJoined(): SessionJoined {
   };
 }
 
-function createSnapshot(): RoomSnapshot {
-  return {
+function createSnapshot(overrides: Partial<RoomSnapshot> = {}): RoomSnapshot {
+  const defaultSnapshot: RoomSnapshot = {
     roomId: "room-1",
     roomCode: "PLAYER",
     mode: "single-player",
@@ -228,6 +274,16 @@ function createSnapshot(): RoomSnapshot {
         respawnAtTick: 24
       }
     ]
+  };
+
+  return {
+    ...defaultSnapshot,
+    ...overrides,
+    rules: overrides.rules ?? defaultSnapshot.rules,
+    arena: overrides.arena ?? defaultSnapshot.arena,
+    round: overrides.round ?? defaultSnapshot.round,
+    players: overrides.players ?? defaultSnapshot.players,
+    pickups: overrides.pickups ?? defaultSnapshot.pickups
   };
 }
 

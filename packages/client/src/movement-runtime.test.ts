@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
   defaultSimulationRules,
@@ -97,21 +97,13 @@ function createSnapshot(
 }
 
 describe("movement runtime", () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
   it("predicts free-flying local motion from the latest command", () => {
     const runtime = createMovementRuntime();
     runtime.syncAuthoritativeSnapshot(createSnapshot(), "player-1");
     runtime.submitPlayerCommand(createMoveCommand(1, { x: 1, y: 0, z: 0 }));
 
     runtime.start();
-    vi.advanceTimersByTime(Math.round(1000 / defaultSimulationRules.tickRate));
+    runtime.advance(1 / defaultSimulationRules.tickRate);
 
     const snapshot = runtime.getSnapshot();
     expect(snapshot?.players[0]?.position.x).toBeCloseTo(0.3, 5);
@@ -132,7 +124,7 @@ describe("movement runtime", () => {
     );
 
     runtime.start();
-    vi.advanceTimersByTime(Math.round(1000 / defaultSimulationRules.tickRate));
+    runtime.advance(1 / defaultSimulationRules.tickRate);
 
     const snapshot = runtime.getSnapshot();
     expect(snapshot?.players[0]?.position.x).toBeCloseTo(0.3, 5);
@@ -165,7 +157,7 @@ describe("movement runtime", () => {
     runtime.submitPlayerCommand(createMoveCommand(1, { x: 1, y: 0, z: 0 }));
 
     runtime.start();
-    vi.advanceTimersByTime(Math.round(1000 / defaultSimulationRules.tickRate));
+    runtime.advance(1 / defaultSimulationRules.tickRate);
 
     const snapshot = runtime.getSnapshot();
     expect(snapshot?.players[0]?.position.x).toBeLessThanOrEqual(11.25);
@@ -203,10 +195,26 @@ describe("movement runtime", () => {
     runtime.submitPlayerCommand(createMoveCommand(1, { x: 1, y: 0, z: 0 }));
 
     runtime.start();
-    vi.advanceTimersByTime(Math.round(1000 / defaultSimulationRules.tickRate) * 5);
+    for (let index = 0; index < 5; index += 1) {
+      runtime.advance(1 / defaultSimulationRules.tickRate);
+    }
 
     const snapshot = runtime.getSnapshot();
     expect(snapshot?.players[0]?.position.x).toBeLessThan(-0.7);
+
+    runtime.dispose();
+  });
+
+  it("supports sub-tick prediction updates for smoother rendering", () => {
+    const runtime = createMovementRuntime();
+    runtime.syncAuthoritativeSnapshot(createSnapshot(), "player-1");
+    runtime.submitPlayerCommand(createMoveCommand(1, { x: 1, y: 0, z: 0 }));
+
+    runtime.start();
+    runtime.advance(1 / 60);
+
+    const snapshot = runtime.getSnapshot();
+    expect(snapshot?.players[0]?.position.x).toBeCloseTo(0.1, 5);
 
     runtime.dispose();
   });

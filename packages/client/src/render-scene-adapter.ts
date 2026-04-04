@@ -36,6 +36,11 @@ type PickupVisual = {
   material: THREE.MeshStandardMaterial;
 };
 
+type SnapshotSample = {
+  receivedAtMs: number;
+  snapshot: RoomSnapshot;
+};
+
 export type FrameMetricsPayload = {
   frameTimeMs: number;
   fps: number;
@@ -65,6 +70,8 @@ export type RenderSceneAdapter = {
   isRunning(): boolean;
   dispose(): void;
 };
+
+const MAX_SNAPSHOT_SAMPLES = 6;
 
 export function createRenderSceneAdapter(
   options: RenderSceneAdapterOptions
@@ -112,6 +119,7 @@ export function createRenderSceneAdapter(
   let frameHandle: number | null = null;
   let joined: SessionJoined | null = null;
   let authoritativeSnapshot: RoomSnapshot | null = null;
+  let snapshotSamples: SnapshotSample[] = [];
   let lastFrameTimeMs: number | null = null;
   let arenaKey: string | null = null;
   let disposed = false;
@@ -130,15 +138,104 @@ export function createRenderSceneAdapter(
     movementRuntime.syncAuthoritativeSnapshot(snapshot, joined.playerId);
   }
 
-  function resolveRenderableSnapshot(): RoomSnapshot | null {
-    const predictedSnapshot = movementRuntime.getSnapshot();
-    if (predictedSnapshot !== null) {
-      return predictedSnapshot;
+  function recordAuthoritativeSnapshot(snapshot: RoomSnapshot, receivedAtMs: number): void {
+    const nextSnapshot = cloneSessionData(snapshot);
+    authoritativeSnapshot = nextSnapshot;
+
+    const lastSample = snapshotSamples.at(-1) ?? null;
+    if (lastSample !== null && nextSnapshot.serverTick <= lastSample.snapshot.serverTick) {
+      snapshotSamples =
+        nextSnapshot.serverTick === lastSample.snapshot.serverTick
+          ? [
+              ...snapshotSamples.slice(0, -1),
+              {
+                receivedAtMs,
+                snapshot: nextSnapshot
+              }
+            ]
+          : [
+              {
+                receivedAtMs,
+                snapshot: nextSnapshot
+              }
+            ];
+      return;
     }
 
-    return authoritativeSnapshot === null
-      ? null
-      : cloneSessionData(authoritativeSnapshot);
+    snapshotSamples.push({
+      receivedAtMs,
+      snapshot: nextSnapshot
+    });
+    if (snapshotSamples.length > MAX_SNAPSHOT_SAMPLES) {
+      snapshotSamples = snapshotSamples.slice(-MAX_SNAPSHOT_SAMPLES);
+    }
+  }
+
+  function resolveRenderableSnapshot(frameTimeMs: number): RoomSnapshot | null {
+    const authoritativeRenderable = resolveInterpolatedSnapshot(frameTimeMs);
+    const predictedSnapshot = movementRuntime.getSnapshot();
+    if (predictedSnapshot === null) {
+      return authoritativeRenderable;
+    }
+    if (authoritativeRenderable === null || joined === null) {
+      return predictedSnapshot;
+    }
+    const joinedPlayerId = joined.playerId;
+
+    const predictedLocalPlayer = predictedSnapshot.players.find(
+      (player) => player.playerId === joinedPlayerId
+    );
+    if (predictedLocalPlayer === undefined) {
+      return authoritativeRenderable;
+    }
+
+    return {
+      ...authoritativeRenderable,
+      players: authoritativeRenderable.players.map((player) =>
+        player.playerId === joinedPlayerId ? cloneSessionData(predictedLocalPlayer) : player
+      )
+    };
+  }
+
+  function resolveInterpolatedSnapshot(frameTimeMs: number): RoomSnapshot | null {
+    const firstSample = snapshotSamples[0];
+    const latestSample = snapshotSamples[snapshotSamples.length - 1];
+    if (firstSample === undefined || latestSample === undefined) {
+      return null;
+    }
+    if (snapshotSamples.length === 1) {
+      return cloneSessionData(firstSample.snapshot);
+    }
+
+    const interpolationDelayMs = 1000 / latestSample.snapshot.rules.tickRate;
+    const renderTimeMs = frameTimeMs - interpolationDelayMs;
+
+    while (snapshotSamples.length > 2) {
+      const nextSample = snapshotSamples[1];
+      if (nextSample === undefined || nextSample.receivedAtMs > renderTimeMs) {
+        break;
+      }
+      snapshotSamples.shift();
+    }
+
+    const startSample = snapshotSamples[0];
+    const endSample = snapshotSamples[1] ?? snapshotSamples[0];
+    if (endSample === undefined || startSample === undefined) {
+      return authoritativeSnapshot === null ? null : cloneSessionData(authoritativeSnapshot);
+    }
+
+    if (renderTimeMs <= startSample.receivedAtMs) {
+      return cloneSessionData(startSample.snapshot);
+    }
+    if (renderTimeMs >= endSample.receivedAtMs || endSample.receivedAtMs <= startSample.receivedAtMs) {
+      return cloneSessionData(endSample.snapshot);
+    }
+
+    const alpha =
+      (renderTimeMs - startSample.receivedAtMs) /
+      (endSample.receivedAtMs - startSample.receivedAtMs);
+
+    return interpolateSnapshot(startSample.snapshot, endSample.snapshot, alpha);
   }
 
   function scheduleNextFrame(): void {
@@ -175,7 +272,17 @@ export function createRenderSceneAdapter(
 
     ensureRendererSize();
 
-    const renderableSnapshot = resolveRenderableSnapshot();
+    const deltaSeconds =
+      lastFrameTimeMs === null
+        ? 0
+        : Math.max(0, (frameTimeMs - lastFrameTimeMs) / 1000);
+    lastFrameTimeMs = frameTimeMs;
+
+    if (movementRuntime.isRunning()) {
+      movementRuntime.advance(deltaSeconds);
+    }
+
+    const renderableSnapshot = resolveRenderableSnapshot(frameTimeMs);
     if (renderableSnapshot !== null) {
       syncSceneSnapshot(renderableSnapshot);
       if (joined !== null) {
@@ -185,12 +292,6 @@ export function createRenderSceneAdapter(
         );
       }
     }
-
-    const deltaSeconds =
-      lastFrameTimeMs === null
-        ? 0
-        : Math.max(0, (frameTimeMs - lastFrameTimeMs) / 1000);
-    lastFrameTimeMs = frameTimeMs;
 
     const pose = cameraController.update(deltaSeconds);
     if (pose !== null) {
@@ -423,8 +524,10 @@ export function createRenderSceneAdapter(
     },
 
     syncAuthoritativeSnapshot(snapshot) {
-      authoritativeSnapshot = cloneSessionData(snapshot);
-      syncRuntimeSnapshot(authoritativeSnapshot);
+      recordAuthoritativeSnapshot(snapshot, clock());
+      if (authoritativeSnapshot !== null) {
+        syncRuntimeSnapshot(authoritativeSnapshot);
+      }
     },
 
     submitPlayerCommand(command) {
@@ -481,9 +584,46 @@ export function createRenderSceneAdapter(
       pickupVisuals.clear();
       cameraController.reset();
       authoritativeSnapshot = null;
+      snapshotSamples = [];
       joined = null;
       arenaKey = null;
     }
+  };
+}
+
+function interpolateSnapshot(
+  startSnapshot: RoomSnapshot,
+  endSnapshot: RoomSnapshot,
+  alpha: number
+): RoomSnapshot {
+  const clampedAlpha = clamp(alpha, 0, 1);
+  const startPlayersById = new Map(
+    startSnapshot.players.map((player) => [player.playerId, player] as const)
+  );
+
+  return {
+    ...cloneSessionData(endSnapshot),
+    players: endSnapshot.players.map((player) => {
+      const startPlayer = startPlayersById.get(player.playerId);
+      if (startPlayer === undefined) {
+        return cloneSessionData(player);
+      }
+
+      return {
+        ...cloneSessionData(player),
+        position: {
+          x: lerp(startPlayer.position.x, player.position.x, clampedAlpha),
+          y: lerp(startPlayer.position.y, player.position.y, clampedAlpha),
+          z: lerp(startPlayer.position.z, player.position.z, clampedAlpha)
+        },
+        velocity: {
+          x: lerp(startPlayer.velocity.x, player.velocity.x, clampedAlpha),
+          y: lerp(startPlayer.velocity.y, player.velocity.y, clampedAlpha),
+          z: lerp(startPlayer.velocity.z, player.velocity.z, clampedAlpha)
+        },
+        yaw: lerpAngle(startPlayer.yaw, player.yaw, clampedAlpha)
+      };
+    })
   };
 }
 
@@ -587,4 +727,22 @@ function disposeObject3D(object: THREE.Object3D): void {
 
 function defaultClock(): number {
   return typeof performance !== "undefined" ? performance.now() : Date.now();
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function lerp(start: number, end: number, alpha: number): number {
+  return start + (end - start) * alpha;
+}
+
+function lerpAngle(start: number, end: number, alpha: number): number {
+  const shortestDelta = wrapAngle(end - start);
+  return wrapAngle(start + shortestDelta * alpha);
+}
+
+function wrapAngle(value: number): number {
+  const wrapped = ((value + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+  return wrapped - Math.PI;
 }
