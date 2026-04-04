@@ -8,8 +8,10 @@ import {
   describeStoppedStatus
 } from "./boot-status.js";
 import { mountClientBootShell } from "./boot-shell.js";
+import { createClientSettingsStore } from "./persistence.js";
 import { createSessionOrchestrator } from "./session-orchestrator.js";
 import { resolveInitialSessionEntry } from "./session-entry.js";
+import type { SessionStartRequest } from "./session-orchestrator.js";
 
 const app = document.querySelector<HTMLDivElement>("#app");
 
@@ -18,14 +20,19 @@ if (!app) {
 }
 
 const orchestrator = createSessionOrchestrator();
+const settingsStore = createClientSettingsStore();
 const initialSessionEntry = resolveInitialSessionEntry(window.location.search);
+const initialSessionRequest = applyPersistedDisplayName(
+  initialSessionEntry.request,
+  settingsStore.getSettings().displayName
+);
 const bootShell = mountClientBootShell({
   appRoot: app,
   resolution: initialSessionEntry
 });
 
 void orchestrator
-  .startSession(initialSessionEntry.request)
+  .startSession(initialSessionRequest)
   .then((session) => {
     const joinedSession = session.getSessionJoined();
     if (joinedSession !== null) {
@@ -63,3 +70,17 @@ void orchestrator
       error instanceof Error ? error.message : "failed to start session";
     bootShell.setStatus(describeStartupFailureStatus(message));
   });
+
+function applyPersistedDisplayName(
+  request: SessionStartRequest,
+  displayName: string | null
+): SessionStartRequest {
+  if (displayName === null) {
+    return request;
+  }
+
+  return {
+    ...request,
+    displayName
+  };
+}
