@@ -2,6 +2,7 @@ import {
   describeInitialBootStatus,
   type BootStatusViewModel
 } from "./boot-status.js";
+import { resolveRenderCanvasSize } from "./render-budget.js";
 import type { SessionEntryResolution } from "./session-entry.js";
 
 export type ClientBootShell = {
@@ -18,6 +19,10 @@ export function mountClientBootShell(options: {
   const { appRoot, resolution } = options;
   const shell = document.createElement("div");
   shell.className = "client-shell";
+
+  const backdropCanvas = document.createElement("canvas");
+  backdropCanvas.className = "boot-backdrop";
+  backdropCanvas.setAttribute("aria-hidden", "true");
 
   const canvas = document.createElement("canvas");
   canvas.className = "game-canvas";
@@ -43,23 +48,30 @@ export function mountClientBootShell(options: {
 
   bootPanel.append(badge, title, detail);
   overlayRoot.append(bootPanel);
-  shell.append(canvas, overlayRoot);
+  shell.append(backdropCanvas, canvas, overlayRoot);
   appRoot.replaceChildren(shell);
 
-  const resizeCanvas = () => {
-    const devicePixelRatio = Math.min(window.devicePixelRatio || 1, 2);
-    const nextWidth = Math.max(1, Math.floor(window.innerWidth * devicePixelRatio));
-    const nextHeight = Math.max(
-      1,
-      Math.floor(window.innerHeight * devicePixelRatio)
-    );
+  const resizeCanvases = () => {
+    const nextSize = resolveRenderCanvasSize({
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+      devicePixelRatio: window.devicePixelRatio || 1
+    });
 
-    if (canvas.width !== nextWidth || canvas.height !== nextHeight) {
-      canvas.width = nextWidth;
-      canvas.height = nextHeight;
+    if (canvas.width !== nextSize.width || canvas.height !== nextSize.height) {
+      canvas.width = nextSize.width;
+      canvas.height = nextSize.height;
     }
 
-    paintBootBackdrop(canvas);
+    if (
+      backdropCanvas.width !== nextSize.width ||
+      backdropCanvas.height !== nextSize.height
+    ) {
+      backdropCanvas.width = nextSize.width;
+      backdropCanvas.height = nextSize.height;
+    }
+
+    paintBootBackdrop(backdropCanvas);
   };
 
   const setStatus = (status: BootStatusViewModel) => {
@@ -68,8 +80,8 @@ export function mountClientBootShell(options: {
     detail.textContent = status.detail;
   };
 
-  resizeCanvas();
-  window.addEventListener("resize", resizeCanvas);
+  resizeCanvases();
+  window.addEventListener("resize", resizeCanvases);
   setStatus(describeInitialBootStatus(resolution));
 
   return {
@@ -77,7 +89,7 @@ export function mountClientBootShell(options: {
     overlayRoot,
     setStatus,
     dispose() {
-      window.removeEventListener("resize", resizeCanvas);
+      window.removeEventListener("resize", resizeCanvases);
     }
   };
 }

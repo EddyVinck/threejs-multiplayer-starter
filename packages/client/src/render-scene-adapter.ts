@@ -411,6 +411,8 @@ function createDefaultRenderer(canvas: HTMLCanvasElement): SceneRenderer {
     powerPreference: "high-performance"
   });
   renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.shadowMap.enabled = false;
+  renderer.toneMapping = THREE.NoToneMapping;
   return renderer;
 }
 

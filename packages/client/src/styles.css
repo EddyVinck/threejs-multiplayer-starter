@@ -30,10 +30,21 @@ body {
   min-height: 100vh;
 }
 
+.boot-backdrop,
 .game-canvas {
+  position: absolute;
+  inset: 0;
   display: block;
   width: 100vw;
   height: 100vh;
+}
+
+.boot-backdrop {
+  z-index: 0;
+}
+
+.game-canvas {
+  z-index: 1;
 }
 
 .overlay-root {
@@ -44,6 +55,7 @@ body {
   justify-content: flex-start;
   padding: 1.5rem;
   pointer-events: none;
+  z-index: 2;
 }
 
 .boot-panel {
