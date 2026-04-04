@@ -103,7 +103,7 @@ export function createPlayerCommandPipeline(
   }
 
   function handleMouseMove(event: MouseEvent): void {
-    yaw = wrapAngle(yaw - event.movementX * mouseSensitivity);
+    yaw = wrapAngle(yaw + event.movementX * mouseSensitivity);
     pitch = clamp(pitch - event.movementY * mouseSensitivity, -MAX_LOOK_PITCH, MAX_LOOK_PITCH);
   }
 

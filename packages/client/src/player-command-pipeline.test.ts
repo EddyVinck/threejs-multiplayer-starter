@@ -102,7 +102,7 @@ describe("player command pipeline", () => {
         z: -1
       },
       look: {
-        yaw: 0.5,
+        yaw: -0.5,
         pitch: 0.25
       },
       actions: {
