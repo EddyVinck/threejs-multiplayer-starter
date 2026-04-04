@@ -3,28 +3,94 @@
   font-family: Inter, system-ui, sans-serif;
   background: #080b14;
   color: #f6f7fb;
+  line-height: 1.5;
+}
+
+html {
+  min-height: 100%;
 }
 
 * {
   box-sizing: border-box;
 }
 
+html,
 body {
   margin: 0;
   min-height: 100vh;
   background: radial-gradient(circle at top, #16213a, #080b14 60%);
 }
 
-.shell {
+#app {
   min-height: 100vh;
-  display: grid;
-  place-content: center;
-  gap: 0.75rem;
-  padding: 2rem;
-  text-align: center;
 }
 
-h1,
-p {
+.client-shell {
+  position: relative;
+  min-height: 100vh;
+}
+
+.game-canvas {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+}
+
+.overlay-root {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  padding: 1.5rem;
+  pointer-events: none;
+}
+
+.boot-panel {
+  max-width: min(28rem, calc(100vw - 3rem));
+  padding: 1rem 1.125rem;
+  border: 1px solid rgba(146, 188, 255, 0.2);
+  border-radius: 1rem;
+  background: rgba(6, 10, 18, 0.82);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  pointer-events: auto;
+}
+
+.boot-badge,
+.boot-title,
+.boot-detail {
   margin: 0;
+}
+
+.boot-badge {
+  color: #89f3b5;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.boot-title {
+  margin-top: 0.45rem;
+  font-size: clamp(1.8rem, 4vw, 2.4rem);
+  line-height: 1.05;
+}
+
+.boot-detail {
+  margin-top: 0.75rem;
+  color: rgba(246, 247, 251, 0.8);
+  font-size: 0.98rem;
+}
+
+@media (max-width: 640px) {
+  .overlay-root {
+    align-items: stretch;
+    padding: 1rem;
+  }
+
+  .boot-panel {
+    align-self: end;
+    max-width: none;
+  }
 }
