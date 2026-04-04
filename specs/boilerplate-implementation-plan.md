@@ -29,7 +29,7 @@
 
 - [x] P1: Build the tiny sample arena or playground with minimal primitives and clear navigable space.
 - [x] P1: Implement the arena gameplay module with pickup spawning, pickup collection, per-player score tracking, match timer, and round reset flow.
-- [ ] P1: Make sure the sample mode works both through the loopback single-player path and through the multiplayer room path without special-case gameplay logic.
+- [x] P1: Make sure the sample mode works both through the loopback single-player path and through the multiplayer room path without special-case gameplay logic.
 - [ ] P1: Verify late join by sending an authoritative room snapshot followed by live updates and ensuring a new client can enter an in-progress round in a valid state.
 
 - [ ] P1: Build the lightweight DOM/CSS UI shell with a small pre-game screen, single-player as the primary CTA, and multiplayer actions visible but secondary.
@@ -46,6 +46,8 @@
 - [ ] P2: Review all deep module interfaces after the first end-to-end pass and simplify any surface area that became too chatty or leaked implementation details.
 
 ## Progress Log
+
+- 2026-04-04: Completed the shared sample-mode P1 task by introducing a canonical shared sample-mode config for arena and rules, wiring both the loopback single-player session and multiplayer room runtime through that same config so gameplay setup cannot drift between paths, and adding focused parity coverage that asserts both wrappers expose the same sample arena and rules contract. Files changed: `packages/shared/src/index.ts`, `packages/shared/src/sample-mode.ts`, `packages/shared/src/sample-mode.test.ts`, `packages/shared/dist/*`, `packages/client/src/loopback-session.ts`, `packages/client/src/loopback-session.test.ts`, `packages/server/src/room-runtime.ts`, `packages/server/src/room-runtime.test.ts`, and `specs/boilerplate-implementation-plan.md`. Checks run: `pnpm exec vitest run packages/shared/src/sample-mode.test.ts packages/client/src/loopback-session.test.ts packages/server/src/room-runtime.test.ts` passed, `pnpm typecheck` passed, `pnpm lint` passed, and `pnpm build` passed with the existing Vite client chunk-size warning for the bundled Rapier payload. Next recommended task: verify late join by sending an authoritative room snapshot followed by live updates and ensuring a new client can enter an in-progress round in a valid state.
 
 - 2026-04-04: Completed the arena-gameplay P1 task by extracting the sample arena rules into a dedicated shared gameplay module that owns deterministic spawn assignment, pickup state creation, pickup collection and respawn behavior, and round reset restoration, then wiring the simulation core through that module so loopback and multiplayer continue sharing the same authoritative gameplay path with focused module coverage. Files changed: `packages/shared/src/arena-gameplay.ts`, `packages/shared/src/arena-gameplay.test.ts`, `packages/shared/src/index.ts`, `packages/shared/src/simulation-core.ts`, and `specs/boilerplate-implementation-plan.md`. Checks run: `pnpm exec vitest run packages/shared/src/arena-gameplay.test.ts packages/server/src/simulation-core.test.ts` passed, `pnpm typecheck` passed, `pnpm lint` passed, and `pnpm build` passed. Next recommended task: make sure the sample mode works both through the loopback single-player path and through the multiplayer room path without special-case gameplay logic.
 

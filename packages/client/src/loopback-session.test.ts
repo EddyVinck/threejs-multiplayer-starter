@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { defaultSimulationRules, type PlayerCommand } from "@gamejam/shared";
+import {
+  defaultSampleModeConfig,
+  defaultSimulationRules,
+  type PlayerCommand
+} from "@gamejam/shared";
 
 import { createLoopbackSession } from "./loopback-session.js";
 import type { GameSessionEvent } from "./session.js";
@@ -55,7 +59,9 @@ describe("loopback session", () => {
       snapshot: {
         mode: "single-player",
         roomId: "loopback-room",
-        roomCode: "PLAYER"
+        roomCode: "PLAYER",
+        arena: defaultSampleModeConfig.arena,
+        rules: defaultSampleModeConfig.rules
       }
     });
     expect(session.getLatestSnapshot()?.players[0]?.displayName).toBe("Eddy");

@@ -2,13 +2,12 @@ import { randomUUID } from "node:crypto";
 
 import {
   createRoomRequestSchema,
-  defaultSampleArenaLayout,
-  defaultSimulationRules,
   displayNameSchema,
   generateRoomCode,
   joinRoomByCodeRequestSchema,
   playerIdSchema,
   quickJoinRequestSchema,
+  resolveSampleModeConfig,
   roomCodeSchema,
   roomIdSchema,
   type ArenaLayout,
@@ -27,10 +26,11 @@ import {
 import { createSimulationCore, type SimulationCore } from "./simulation-core.js";
 import type { GlobalAuthoritativeTickLoop } from "./server-foundation.js";
 
-const DEFAULT_EMPTY_ROOM_TTL_TICKS = defaultSimulationRules.tickRate * 30;
+const defaultSampleMode = resolveSampleModeConfig();
+const DEFAULT_EMPTY_ROOM_TTL_TICKS = defaultSampleMode.rules.tickRate * 30;
 const DEFAULT_ROOM_CODE_GENERATION_ATTEMPTS = 32;
 
-export const defaultRoomArena: ArenaLayout = defaultSampleArenaLayout;
+export const defaultRoomArena: ArenaLayout = defaultSampleMode.arena;
 
 export type RoomRuntimeErrorCode = Extract<
   ProtocolErrorCode,
@@ -184,14 +184,18 @@ function toRoomRuntimeError(
 }
 
 export function createRoomRuntime(options: RoomRuntimeOptions): RoomRuntime {
+  const sampleMode = resolveSampleModeConfig({
+    ...(options.arena === undefined ? {} : { arena: options.arena }),
+    ...(options.rules === undefined ? {} : { rules: options.rules })
+  });
   const core = createSimulationCore({
     roomId: options.roomId,
     roomCode: options.roomCode,
     mode: "multiplayer",
     visibility: options.visibility,
     lateJoinAllowed: options.lateJoinAllowed,
-    arena: options.arena ?? defaultRoomArena,
-    ...(options.rules === undefined ? {} : { rules: options.rules })
+    arena: sampleMode.arena,
+    rules: sampleMode.rules
   });
   const members = new Map<PlayerId, RoomMember>();
   const emptyRoomTtlTicks =

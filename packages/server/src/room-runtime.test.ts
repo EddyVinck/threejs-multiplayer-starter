@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  defaultSampleModeConfig,
   defaultSimulationRules,
   type SimulationRules
 } from "@gamejam/shared";
@@ -65,6 +66,8 @@ describe("room runtime", () => {
       roundNumber: 1,
       remainingMs: defaultSimulationRules.round.durationMs
     });
+    expect(created.snapshot.arena).toEqual(defaultSampleModeConfig.arena);
+    expect(created.snapshot.rules).toEqual(defaultSampleModeConfig.rules);
     expect(created.snapshot.players).toEqual([
       expect.objectContaining({
         playerId: created.playerId,

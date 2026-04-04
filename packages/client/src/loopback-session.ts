@@ -1,9 +1,8 @@
 import {
   createSimulationCore,
-  defaultSimulationRules,
-  defaultSampleArenaLayout,
   displayNameSchema,
   playerIdSchema,
+  resolveSampleModeConfig,
   roomCodeSchema,
   roomIdSchema,
   sessionJoinedSchema,
@@ -31,8 +30,6 @@ const DEFAULT_LOOPBACK_PLAYER_ID = playerIdSchema.parse("local-player");
 const DEFAULT_LOOPBACK_DISPLAY_NAME = displayNameSchema.parse("Player 1");
 const DEFAULT_LOOPBACK_VISIBILITY: RoomVisibility = "private";
 
-const defaultLoopbackArena: ArenaLayout = defaultSampleArenaLayout;
-
 export type LoopbackSessionOptions = {
   roomId?: RoomId;
   roomCode?: RoomCode;
@@ -45,12 +42,14 @@ export type LoopbackSessionOptions = {
 export function createLoopbackSession(
   options: LoopbackSessionOptions = {}
 ): GameSession {
-  const rules = options.rules ?? defaultSimulationRules;
+  const sampleMode = resolveSampleModeConfig({
+    ...(options.arena === undefined ? {} : { arena: options.arena }),
+    ...(options.rules === undefined ? {} : { rules: options.rules })
+  });
   const roomId = options.roomId ?? DEFAULT_LOOPBACK_ROOM_ID;
   const roomCode = options.roomCode ?? DEFAULT_LOOPBACK_ROOM_CODE;
   const playerId = options.playerId ?? DEFAULT_LOOPBACK_PLAYER_ID;
   const displayName = resolveDisplayName(options.displayName);
-  const arena = options.arena ?? defaultLoopbackArena;
   const listeners = new Set<GameSessionListener>();
   const core = createSimulationCore({
     roomId,
@@ -58,8 +57,8 @@ export function createLoopbackSession(
     mode: "single-player",
     visibility: DEFAULT_LOOPBACK_VISIBILITY,
     lateJoinAllowed: false,
-    arena,
-    rules
+    arena: sampleMode.arena,
+    rules: sampleMode.rules
   });
 
   core.upsertPlayer({
@@ -81,7 +80,7 @@ export function createLoopbackSession(
   // Clear the initial dirty state because subscribers replay the join snapshot.
   core.exportDelta();
 
-  const intervalMs = Math.round(1000 / rules.tickRate);
+  const intervalMs = Math.round(1000 / sampleMode.rules.tickRate);
   const intervalId = globalThis.setInterval(() => {
     if (stopped) {
       return;

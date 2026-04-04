@@ -3,6 +3,7 @@ export * from "./room-code.js";
 export * from "./schemas.js";
 export * from "./serialization.js";
 export * from "./arena-gameplay.js";
+export * from "./sample-mode.js";
 export * from "./sample-arena.js";
 export * from "./simulation.js";
 export * from "./simulation-core.js";
