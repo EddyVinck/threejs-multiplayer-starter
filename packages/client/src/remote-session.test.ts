@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   clientEventTypes,
   createMessageEnvelope,
+  defaultSimulationRules,
   serverEventTypes,
   type PlayerCommand,
   type RoomSnapshot
@@ -103,6 +104,28 @@ function createSnapshot(): RoomSnapshot {
     visibility: "public",
     lateJoinAllowed: true,
     serverTick: 0,
+    rules: defaultSimulationRules,
+    arena: {
+      bounds: {
+        width: 24,
+        height: 8,
+        depth: 24
+      },
+      playerSpawns: [
+        {
+          spawnId: "spawn-a",
+          position: { x: 0, y: 1, z: 0 },
+          yaw: 0
+        }
+      ],
+      pickupSpawns: [
+        {
+          pickupId: "pickup-center",
+          position: { x: 2, y: 1, z: 0 },
+          kind: "score-orb"
+        }
+      ]
+    },
     round: {
       phase: "active",
       roundNumber: 1,

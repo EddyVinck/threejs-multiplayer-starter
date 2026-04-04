@@ -11,7 +11,8 @@ import {
   roomVisibilitySchema,
   roundPhaseSchema,
   sessionModeSchema,
-  vector3Schema
+  vector3Schema,
+  type Vector3
 } from "./schemas.js";
 
 export const positiveIntegerSchema = z.number().int().positive();
@@ -25,6 +26,7 @@ export const DEFAULT_PICKUP_RESPAWN_TICKS = 40;
 export const DEFAULT_PICKUP_SCORE_VALUE = 1;
 export const DEFAULT_PLAYER_COLLISION_RADIUS = 0.75;
 export const DEFAULT_PICKUP_COLLISION_RADIUS = 1.25;
+export const DEFAULT_PLAYER_MOVE_SPEED = 6;
 
 export const pickupKindSchema = z.enum(["score-orb"]);
 export const roundResetReasonSchema = z.enum(["round-complete", "manual"]);
@@ -161,3 +163,43 @@ export type RoundTimerState = z.infer<typeof roundTimerStateSchema>;
 export type SimulationPlayerState = z.infer<typeof simulationPlayerStateSchema>;
 export type SimulationPickupState = z.infer<typeof simulationPickupStateSchema>;
 export type AuthoritativeRoomState = z.infer<typeof authoritativeRoomStateSchema>;
+
+export function resolvePlayerVelocity(
+  move: {
+    x: number;
+    y: number;
+    z: number;
+  },
+  speed = DEFAULT_PLAYER_MOVE_SPEED
+): Vector3 {
+  const normalizedMove = normalizeMovementInput(move);
+
+  return {
+    x: normalizedMove.x * speed,
+    y: normalizedMove.y * speed,
+    z: normalizedMove.z * speed
+  };
+}
+
+function normalizeMovementInput(vector: {
+  x: number;
+  y: number;
+  z: number;
+}): Vector3 {
+  const lengthSquared =
+    vector.x * vector.x + vector.y * vector.y + vector.z * vector.z;
+  if (lengthSquared <= 1) {
+    return {
+      x: vector.x,
+      y: vector.y,
+      z: vector.z
+    };
+  }
+
+  const length = Math.sqrt(lengthSquared);
+  return {
+    x: vector.x / length,
+    y: vector.y / length,
+    z: vector.z / length
+  };
+}

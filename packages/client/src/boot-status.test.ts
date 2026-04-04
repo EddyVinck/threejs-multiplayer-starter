@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { defaultSimulationRules } from "@gamejam/shared";
+
 import {
   describeInitialBootStatus,
   describeJoinedStatus,
@@ -52,6 +54,28 @@ describe("boot status", () => {
         visibility: "private",
         lateJoinAllowed: true,
         serverTick: 9,
+        rules: defaultSimulationRules,
+        arena: {
+          bounds: {
+            width: 24,
+            height: 8,
+            depth: 24
+          },
+          playerSpawns: [
+            {
+              spawnId: "spawn-a",
+              position: { x: 0, y: 1, z: 0 },
+              yaw: 0
+            }
+          ],
+          pickupSpawns: [
+            {
+              pickupId: "pickup-1",
+              position: { x: 1, y: 0, z: 1 },
+              kind: "score-orb"
+            }
+          ]
+        },
         round: {
           phase: "active",
           roundNumber: 2,

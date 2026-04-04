@@ -14,6 +14,7 @@ import {
 import {
   authoritativeRoomStateSchema,
   defaultSimulationRules,
+  resolvePlayerVelocity,
   simulationRulesSchema,
   type ArenaLayout,
   type AuthoritativeRoomState,
@@ -21,8 +22,6 @@ import {
   type SimulationPlayerState,
   type SimulationRules
 } from "./simulation.js";
-
-const DEFAULT_PLAYER_MOVE_SPEED = 6;
 
 export type SimulationCoreOptions = {
   roomId: AuthoritativeRoomState["roomId"];
@@ -123,20 +122,6 @@ function vectorLengthSquared(vector: Vector3): number {
   return vector.x ** 2 + vector.y ** 2 + vector.z ** 2;
 }
 
-function normalizeInput(vector: Vector3): Vector3 {
-  const lengthSquared = vectorLengthSquared(vector);
-  if (lengthSquared <= 1) {
-    return vector;
-  }
-
-  const length = Math.sqrt(lengthSquared);
-  return {
-    x: vector.x / length,
-    y: vector.y / length,
-    z: vector.z / length
-  };
-}
-
 function areVectorsEqual(left: Vector3, right: Vector3): boolean {
   return left.x === right.x && left.y === right.y && left.z === right.z;
 }
@@ -193,6 +178,8 @@ function buildRoomSnapshot(state: MutableState): RoomSnapshot {
     visibility: state.visibility,
     lateJoinAllowed: state.lateJoinAllowed,
     serverTick: state.serverTick,
+    rules: state.rules,
+    arena: state.arena,
     round: buildRoundState(state),
     players: state.players.map((player) => ({
       playerId: player.playerId,
@@ -427,16 +414,7 @@ export function createSimulationCore(
       return;
     }
 
-    const normalizedMove = normalizeInput({
-      x: command.move.x,
-      y: command.move.y,
-      z: command.move.z
-    });
-    const nextVelocity = {
-      x: normalizedMove.x * DEFAULT_PLAYER_MOVE_SPEED,
-      y: normalizedMove.y * DEFAULT_PLAYER_MOVE_SPEED,
-      z: normalizedMove.z * DEFAULT_PLAYER_MOVE_SPEED
-    };
+    const nextVelocity = resolvePlayerVelocity(command.move);
     const nextPosition = clampPosition({
       x: player.position.x + nextVelocity.x * deltaSeconds,
       y: player.position.y + nextVelocity.y * deltaSeconds,

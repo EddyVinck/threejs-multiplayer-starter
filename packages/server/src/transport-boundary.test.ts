@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { clientEventTypes, serverEventTypes } from "@gamejam/shared";
+import {
+  clientEventTypes,
+  defaultSimulationRules,
+  serverEventTypes
+} from "@gamejam/shared";
 
 import {
   emitValidatedServerEnvelope,
@@ -90,6 +94,28 @@ describe("transport boundary validation", () => {
         visibility: "public",
         lateJoinAllowed: true,
         serverTick: 42,
+        rules: defaultSimulationRules,
+        arena: {
+          bounds: {
+            width: 24,
+            height: 8,
+            depth: 24
+          },
+          playerSpawns: [
+            {
+              spawnId: "spawn-a",
+              position: { x: 0, y: 1, z: 0 },
+              yaw: 0
+            }
+          ],
+          pickupSpawns: [
+            {
+              pickupId: "pickup-1",
+              position: { x: 4, y: 1, z: 0 },
+              kind: "score-orb"
+            }
+          ]
+        },
         round: {
           phase: "active",
           roundNumber: 1,

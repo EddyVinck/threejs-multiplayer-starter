@@ -77,6 +77,47 @@ export const roundStateSchema = z.object({
   remainingMs: nonNegativeIntegerSchema
 });
 
+const simulationRulesSnapshotSchema = z.object({
+  tickRate: z.number().int().positive(),
+  maxPlayers: z.number().int().positive(),
+  playerCollisionRadius: z.number().positive(),
+  round: z.object({
+    durationMs: z.number().int().positive(),
+    resetDurationMs: nonNegativeIntegerSchema
+  }),
+  pickup: z.object({
+    scoreValue: z.number().int().positive(),
+    collisionRadius: z.number().positive(),
+    respawnTicks: z.number().int().positive()
+  })
+});
+
+const arenaLayoutSnapshotSchema = z.object({
+  bounds: z.object({
+    width: z.number().positive(),
+    height: z.number().positive(),
+    depth: z.number().positive()
+  }),
+  playerSpawns: z
+    .array(
+      z.object({
+        spawnId: entityIdSchema,
+        position: vector3Schema,
+        yaw: finiteNumberSchema
+      })
+    )
+    .min(1),
+  pickupSpawns: z
+    .array(
+      z.object({
+        pickupId: entityIdSchema,
+        position: vector3Schema,
+        kind: z.enum(["score-orb"])
+      })
+    )
+    .min(1)
+});
+
 export const roomSnapshotSchema = z.object({
   roomId: roomIdSchema,
   roomCode: roomCodeSchema,
@@ -84,6 +125,8 @@ export const roomSnapshotSchema = z.object({
   visibility: roomVisibilitySchema,
   lateJoinAllowed: z.boolean(),
   serverTick: nonNegativeIntegerSchema,
+  rules: simulationRulesSnapshotSchema,
+  arena: arenaLayoutSnapshotSchema,
   round: roundStateSchema,
   players: z.array(playerSnapshotSchema),
   pickups: z.array(pickupSnapshotSchema)

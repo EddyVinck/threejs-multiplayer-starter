@@ -38,6 +38,8 @@ export function applyRoomDelta(
     visibility: snapshot.visibility,
     lateJoinAllowed: snapshot.lateJoinAllowed,
     serverTick: delta.serverTick,
+    rules: snapshot.rules,
+    arena: snapshot.arena,
     round: delta.round ?? snapshot.round,
     players: [...playersById.values()],
     pickups: [...pickupsById.values()]

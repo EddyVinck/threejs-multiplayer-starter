@@ -53,6 +53,28 @@ describe("shared contract kit", () => {
       visibility: "public",
       lateJoinAllowed: true,
       serverTick: 42,
+      rules: defaultSimulationRules,
+      arena: {
+        bounds: {
+          width: 24,
+          height: 8,
+          depth: 24
+        },
+        playerSpawns: [
+          {
+            spawnId: "spawn-player-1",
+            position: { x: 0, y: 1, z: 0 },
+            yaw: 0
+          }
+        ],
+        pickupSpawns: [
+          {
+            pickupId: "pickup-1",
+            position: { x: 4, y: 1, z: 2 },
+            kind: "score-orb"
+          }
+        ]
+      },
       round: {
         phase: "active",
         roundNumber: 1,
