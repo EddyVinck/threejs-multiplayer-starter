@@ -9,6 +9,7 @@
     "typecheck": "pnpm exec tsc --project tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@dimforge/rapier3d": "^0.19.3",
     "@gamejam/shared": "workspace:*",
     "socket.io-client": "^4.8.3"
   }
