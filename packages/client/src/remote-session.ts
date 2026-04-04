@@ -23,7 +23,7 @@ import type {
 } from "./session.js";
 import { applyRoomDelta, cloneSessionData } from "./session-snapshot.js";
 
-const DEFAULT_DEV_SERVER_URL = "http://127.0.0.1:3000";
+const DEFAULT_DEV_SERVER_URL = "http://127.0.0.1:3001";
 
 export type QuickJoinSessionRequest = {
   mode: "quick-join";
@@ -379,7 +379,7 @@ function resolveServerUrl(serverUrl: string | undefined): string {
       window.location.hostname === "localhost";
 
     if (isLocalHost && window.location.port === "5173") {
-      return `${window.location.protocol}//${window.location.hostname}:3000`;
+      return `${window.location.protocol}//${window.location.hostname}:3001`;
     }
 
     return window.location.origin;

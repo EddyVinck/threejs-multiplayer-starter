@@ -3,7 +3,7 @@ import { defaultSimulationRules } from "@gamejam/shared";
 import { createRealtimeTransport } from "./realtime-transport.js";
 import { createServerFoundation } from "./server-foundation.js";
 
-const port = Number(process.env.PORT ?? 3000);
+const port = Number(process.env.PORT ?? 3001);
 const host = process.env.HOST ?? "127.0.0.1";
 
 const foundation = createServerFoundation({

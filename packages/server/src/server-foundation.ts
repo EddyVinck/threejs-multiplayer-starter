@@ -184,7 +184,7 @@ export function createServerFoundation(
   options: ServerFoundationOptions = {}
 ): ServerFoundation {
   const host = options.host ?? DEFAULT_HOST;
-  const port = options.port ?? 3000;
+  const port = options.port ?? 3001;
   const logger = options.logger ?? createDefaultLogger();
   const tickLoop = createGlobalAuthoritativeTickLoop({
     ...(options.tickRate === undefined ? {} : { tickRate: options.tickRate }),
