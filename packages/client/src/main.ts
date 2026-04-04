@@ -10,6 +10,7 @@ import {
 import { mountClientBootShell } from "./boot-shell.js";
 import { createClientSettingsStore } from "./persistence.js";
 import { createPlayerCommandPipeline } from "./player-command-pipeline.js";
+import { createRenderSceneAdapter } from "./render-scene-adapter.js";
 import { createSessionOrchestrator } from "./session-orchestrator.js";
 import { resolveInitialSessionEntry } from "./session-entry.js";
 import type { SessionStartRequest } from "./session-orchestrator.js";
@@ -32,36 +33,58 @@ const bootShell = mountClientBootShell({
   resolution: initialSessionEntry
 });
 let stopCommandPipeline: (() => void) | null = null;
+let renderSceneAdapter: ReturnType<typeof createRenderSceneAdapter> | null = null;
 
 void orchestrator
   .startSession(initialSessionRequest)
   .then((session) => {
+    renderSceneAdapter?.dispose();
+    renderSceneAdapter = createRenderSceneAdapter({
+      canvas: bootShell.canvas
+    });
+
     stopCommandPipeline?.();
     stopCommandPipeline = attachPlayerCommandPipeline({
       canvas: bootShell.canvas,
       submitCommand: (command) => {
+        renderSceneAdapter?.submitPlayerCommand(command);
         session.submitPlayerCommand(command);
       }
     });
 
     const joinedSession = session.getSessionJoined();
     if (joinedSession !== null) {
+      renderSceneAdapter.syncSessionJoined(joinedSession);
       bootShell.setStatus(describeJoinedStatus(joinedSession));
     }
 
     const latestSnapshot = session.getLatestSnapshot();
     if (latestSnapshot !== null) {
+      renderSceneAdapter.syncAuthoritativeSnapshot(latestSnapshot);
       bootShell.setStatus(describeSnapshotStatus(latestSnapshot));
     }
 
+    renderSceneAdapter.start();
+
     session.subscribe((event) => {
       if (event.type === "joined") {
+        renderSceneAdapter?.syncSessionJoined(event.joined);
         bootShell.setStatus(describeJoinedStatus(event.joined));
         return;
       }
 
       if (event.type === "snapshot") {
+        renderSceneAdapter?.syncAuthoritativeSnapshot(event.snapshot);
         bootShell.setStatus(describeSnapshotStatus(event.snapshot));
+        return;
+      }
+
+      if (event.type === "delta") {
+        const updatedSnapshot = session.getLatestSnapshot();
+        if (updatedSnapshot !== null) {
+          renderSceneAdapter?.syncAuthoritativeSnapshot(updatedSnapshot);
+          bootShell.setStatus(describeSnapshotStatus(updatedSnapshot));
+        }
         return;
       }
 
@@ -73,6 +96,7 @@ void orchestrator
       if (event.type === "stopped") {
         stopCommandPipeline?.();
         stopCommandPipeline = null;
+        renderSceneAdapter?.stop();
         bootShell.setStatus(describeStoppedStatus());
       }
     });
@@ -80,6 +104,8 @@ void orchestrator
   .catch((error: unknown) => {
     stopCommandPipeline?.();
     stopCommandPipeline = null;
+    renderSceneAdapter?.dispose();
+    renderSceneAdapter = null;
     const message =
       error instanceof Error ? error.message : "failed to start session";
     bootShell.setStatus(describeStartupFailureStatus(message));
