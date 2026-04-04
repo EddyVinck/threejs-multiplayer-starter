@@ -56,6 +56,9 @@ importers:
       '@gamejam/shared':
         specifier: workspace:*
         version: link:../shared
+      socket.io-client:
+        specifier: ^4.8.3
+        version: 4.8.3
 
   packages/server:
     dependencies:

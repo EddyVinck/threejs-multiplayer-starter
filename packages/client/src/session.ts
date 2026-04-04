@@ -1,5 +1,6 @@
 import type {
   PlayerCommand,
+  ProtocolError,
   RoomDelta,
   RoomSnapshot,
   SessionJoined
@@ -17,6 +18,10 @@ export type GameSessionEvent =
   | {
       type: "delta";
       delta: RoomDelta;
+    }
+  | {
+      type: "protocol-error";
+      error: ProtocolError;
     }
   | {
       type: "stopped";

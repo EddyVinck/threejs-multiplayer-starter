@@ -10,10 +10,8 @@ import {
   type DisplayName,
   type PlayerCommand,
   type PlayerId,
-  type RoomDelta,
   type RoomCode,
   type RoomId,
-  type RoomSnapshot,
   type RoomVisibility,
   type SimulationRules
 } from "@gamejam/shared";
@@ -24,6 +22,7 @@ import type {
   GameSessionListener,
   GameSessionSubscribeOptions
 } from "./session.js";
+import { applyRoomDelta, cloneSessionData } from "./session-snapshot.js";
 
 const DEFAULT_LOOPBACK_ROOM_ID = roomIdSchema.parse("loopback-room");
 const DEFAULT_LOOPBACK_ROOM_CODE = roomCodeSchema.parse("PLAYER");
@@ -118,7 +117,7 @@ export function createLoopbackSession(
       return;
     }
 
-    latestSnapshot = applyDelta(latestSnapshot, delta);
+    latestSnapshot = applyRoomDelta(latestSnapshot, delta);
     emit({
       type: "delta",
       delta
@@ -133,11 +132,11 @@ export function createLoopbackSession(
 
   return {
     getSessionJoined() {
-      return clonePlainData(joined);
+      return cloneSessionData(joined);
     },
 
     getLatestSnapshot() {
-      return clonePlainData(latestSnapshot);
+      return cloneSessionData(latestSnapshot);
     },
 
     submitPlayerCommand(command: PlayerCommand) {
@@ -157,11 +156,11 @@ export function createLoopbackSession(
       if (options.replayCurrent !== false) {
         listener({
           type: "joined",
-          joined: clonePlainData(joined)
+          joined: cloneSessionData(joined)
         });
         listener({
           type: "snapshot",
-          snapshot: clonePlainData(latestSnapshot)
+          snapshot: cloneSessionData(latestSnapshot)
         });
 
         if (stopped) {
@@ -202,43 +201,3 @@ function resolveDisplayName(displayName: string | undefined): DisplayName {
   return displayNameSchema.parse(displayName);
 }
 
-function clonePlainData<TValue>(value: TValue): TValue {
-  return JSON.parse(JSON.stringify(value)) as TValue;
-}
-
-function applyDelta(snapshot: RoomSnapshot, delta: RoomDelta): RoomSnapshot {
-  const playersById = new Map(
-    snapshot.players.map((player) => [player.playerId, player] as const)
-  );
-  const pickupsById = new Map(
-    snapshot.pickups.map((pickup) => [pickup.pickupId, pickup] as const)
-  );
-
-  for (const playerId of delta.removedPlayerIds) {
-    playersById.delete(playerId);
-  }
-
-  for (const player of delta.updatedPlayers) {
-    playersById.set(player.playerId, player);
-  }
-
-  for (const pickupId of delta.removedPickupIds) {
-    pickupsById.delete(pickupId);
-  }
-
-  for (const pickup of delta.updatedPickups) {
-    pickupsById.set(pickup.pickupId, pickup);
-  }
-
-  return {
-    roomId: snapshot.roomId,
-    roomCode: snapshot.roomCode,
-    mode: snapshot.mode,
-    visibility: snapshot.visibility,
-    lateJoinAllowed: snapshot.lateJoinAllowed,
-    serverTick: delta.serverTick,
-    round: delta.round ?? snapshot.round,
-    players: [...playersById.values()],
-    pickups: [...pickupsById.values()]
-  };
-}

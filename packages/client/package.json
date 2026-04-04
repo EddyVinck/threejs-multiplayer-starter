@@ -9,6 +9,7 @@
     "typecheck": "pnpm exec tsc --project tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@gamejam/shared": "workspace:*"
+    "@gamejam/shared": "workspace:*",
+    "socket.io-client": "^4.8.3"
   }
 }
