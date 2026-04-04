@@ -10,7 +10,8 @@
     "typecheck": "pnpm --filter @gamejam/shared typecheck && pnpm --filter @gamejam/server typecheck && pnpm --filter @gamejam/client typecheck",
     "test": "pnpm exec vitest run --passWithNoTests",
     "test:watch": "pnpm exec vitest --passWithNoTests",
-    "format": "pnpm exec prettier --write ."
+    "format": "pnpm exec prettier --write .",
+    "validate:jam": "node scripts/validate-jam-constraints.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

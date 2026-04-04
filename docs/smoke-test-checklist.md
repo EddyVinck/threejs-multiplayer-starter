@@ -63,6 +63,7 @@ Use this before releases or after risky changes. Run the dev stack with `pnpm de
 
 ## Optional: jam constraints spot-check
 
+- [ ] Run `pnpm validate:jam` after a production build (or rely on `pnpm smoke:build`, which runs the same checks). It asserts minimal HTML, optional `dist/` JS/WASM size budgets, and no auth-related terms in `packages/client/src`.
 - [ ] No login, signup, or account prompts.
 - [ ] Initial load remains acceptable for a small jam game (no mandatory long splash if not intended).
 
