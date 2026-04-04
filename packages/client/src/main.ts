@@ -1,6 +1,7 @@
 import "./styles.css";
 
 import { createSessionOrchestrator } from "./session-orchestrator.js";
+import { resolveInitialSessionEntry } from "./session-entry.js";
 
 const app = document.querySelector<HTMLDivElement>("#app");
 
@@ -23,13 +24,23 @@ if (!sessionStatus) {
 }
 
 const orchestrator = createSessionOrchestrator();
+const initialSessionEntry = resolveInitialSessionEntry(window.location.search);
+
+if (initialSessionEntry.source === "room-link") {
+  sessionStatus.textContent = `Joining room ${initialSessionEntry.roomCode} from invite link...`;
+} else if (initialSessionEntry.source === "invalid-room-link") {
+  sessionStatus.textContent =
+    "Room link was invalid, starting a single-player session instead.";
+}
 
 void orchestrator
-  .startSession({
-    mode: "single-player"
-  })
+  .startSession(initialSessionEntry.request)
   .then((session) => {
-    sessionStatus.textContent = "Single-player loopback session is running.";
+    const joinedSession = session.getSessionJoined();
+    sessionStatus.textContent =
+      joinedSession?.mode === "multiplayer"
+        ? `Joined ${joinedSession.mode} session ${joinedSession.roomCode}.`
+        : "Single-player loopback session is running.";
 
     session.subscribe((event) => {
       if (event.type === "joined") {
