@@ -37,8 +37,11 @@ export function mountClientBootShell(options: {
   appRoot: HTMLElement;
   resolution: SessionEntryResolution;
   settingsStore: ClientSettingsStore;
-  /** When set, volume/mute changes update the running Web Audio graph. */
-  audioManager?: Pick<AudioManager, "applyAudioSettings" | "dispose">;
+  /** When set, volume/mute changes update the running Web Audio graph and UI can play cues. */
+  audioManager?: Pick<
+    AudioManager,
+    "applyAudioSettings" | "dispose" | "play"
+  >;
   onStartSession?: (request: SessionStartRequest) => void;
 }): ClientBootShell {
   const { appRoot, audioManager, onStartSession, resolution, settingsStore } =
@@ -201,6 +204,7 @@ export function mountClientBootShell(options: {
   });
 
   muteCheckbox.addEventListener("change", () => {
+    audioManager?.play("menuNavigate");
     settingsStore.patchSettings({ audio: { muted: muteCheckbox.checked } });
     audioManager?.applyAudioSettings(settingsStore.getSettings().audio);
   });
@@ -219,6 +223,7 @@ export function mountClientBootShell(options: {
       return;
     }
 
+    audioManager?.play("uiTap");
     onStartSession?.({
       mode: "single-player"
     });
@@ -233,6 +238,7 @@ export function mountClientBootShell(options: {
       return;
     }
 
+    audioManager?.play("menuNavigate");
     onStartSession?.({
       mode: "quick-join"
     });
@@ -247,6 +253,7 @@ export function mountClientBootShell(options: {
       return;
     }
 
+    audioManager?.play("menuNavigate");
     onStartSession?.({
       mode: "create-room",
       visibility: "private",
@@ -318,6 +325,7 @@ export function mountClientBootShell(options: {
     joinCodeInput.value = parsedRoomCode.data;
     joinCodeError.textContent = "";
     joinCodeInput.removeAttribute("aria-invalid");
+    audioManager?.play("uiTap");
     onStartSession?.({
       mode: "join-by-code",
       roomCode: parsedRoomCode.data

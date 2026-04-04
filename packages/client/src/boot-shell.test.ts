@@ -2,6 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 
+import type { AudioManagerSoundId } from "./audio-manager.js";
 import { createClientSettingsStore } from "./persistence.js";
 import { mountClientBootShell } from "./boot-shell.js";
 
@@ -183,6 +184,45 @@ describe("boot shell settings", () => {
     expect(nameInput?.disabled).toBe(false);
     expect(volumeInput?.disabled).toBe(false);
     expect(muteInput?.disabled).toBe(false);
+
+    shell.dispose();
+  });
+
+  it("plays lightweight UI cues when primary actions and mute are used", () => {
+    const storage = new MemoryStorage();
+    const settingsStore = createClientSettingsStore({ storage });
+    const played: AudioManagerSoundId[] = [];
+    const audioManager = {
+      applyAudioSettings: () => {},
+      dispose: () => {},
+      play: (id: AudioManagerSoundId) => {
+        played.push(id);
+      }
+    };
+
+    const appRoot = document.createElement("div");
+    const shell = mountClientBootShell({
+      appRoot,
+      resolution: {
+        source: "default-single-player",
+        request: { mode: "single-player" }
+      },
+      settingsStore,
+      audioManager
+    });
+
+    appRoot
+      .querySelector<HTMLButtonElement>(".pregame-action-primary")
+      ?.click();
+    appRoot
+      .querySelectorAll<HTMLButtonElement>(".pregame-action-secondary")[0]
+      ?.click();
+    const muteInput = appRoot.querySelector<HTMLInputElement>("#pregame-mute");
+    expect(muteInput).not.toBeNull();
+    muteInput!.checked = true;
+    muteInput!.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(played).toEqual(["uiTap", "menuNavigate", "menuNavigate"]);
 
     shell.dispose();
   });

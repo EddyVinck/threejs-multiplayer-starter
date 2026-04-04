@@ -17,6 +17,11 @@ import {
   observeLocalScoreIncrease,
   resetLocalScoreObservation
 } from "./pickup-score-feedback.js";
+import {
+  createRoundTransitionObservationState,
+  observeRoundNumberIncrease,
+  resetRoundTransitionObservation
+} from "./round-transition-feedback.js";
 import { createRenderSceneAdapter } from "./render-scene-adapter.js";
 import { applySessionRoomLink } from "./room-link.js";
 import { createSessionOrchestrator } from "./session-orchestrator.js";
@@ -78,6 +83,7 @@ async function startSession(
   try {
     const session = await orchestrator.startSession(hydratedRequest);
     const scoreObservation = createLocalScoreObservationState();
+    const roundObservation = createRoundTransitionObservationState();
 
     const considerPickupSound = (
       joined: SessionJoined,
@@ -88,6 +94,15 @@ async function startSession(
       }
       if (observeLocalScoreIncrease(scoreObservation, joined.playerId, snapshot)) {
         audioManager.play("pickup");
+      }
+    };
+
+    const considerRoundTransitionSound = (snapshot: RoomSnapshot | null): void => {
+      if (snapshot === null) {
+        return;
+      }
+      if (observeRoundNumberIncrease(roundObservation, snapshot)) {
+        audioManager.play("roundTransition");
       }
     };
 
@@ -124,11 +139,13 @@ async function startSession(
       bootShell.setInGameHudVisible(true);
       bootShell.updateInGameHud(joinedSession, latestSnapshot);
       considerPickupSound(joinedSession, latestSnapshot);
+      considerRoundTransitionSound(latestSnapshot);
     }
 
     unsubscribeFromSession = session.subscribe((event) => {
       if (event.type === "joined") {
         resetLocalScoreObservation(scoreObservation);
+        resetRoundTransitionObservation(roundObservation);
         syncRoomLink(event.joined);
         renderSceneAdapter?.syncSessionJoined(event.joined);
         bootShell.setInGameHudVisible(true);
@@ -137,6 +154,7 @@ async function startSession(
           session.getLatestSnapshot()
         );
         considerPickupSound(event.joined, session.getLatestSnapshot());
+        considerRoundTransitionSound(session.getLatestSnapshot());
         return;
       }
 
@@ -146,6 +164,7 @@ async function startSession(
         if (joined !== null) {
           bootShell.updateInGameHud(joined, event.snapshot);
           considerPickupSound(joined, event.snapshot);
+          considerRoundTransitionSound(event.snapshot);
         }
         return;
       }
@@ -158,6 +177,7 @@ async function startSession(
           if (joined !== null) {
             bootShell.updateInGameHud(joined, updatedSnapshot);
             considerPickupSound(joined, updatedSnapshot);
+            considerRoundTransitionSound(updatedSnapshot);
           }
         }
         return;
