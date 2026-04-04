@@ -6,6 +6,7 @@ import {
   describeInitialBootStatus,
   describeJoinedStatus,
   describeProtocolErrorStatus,
+  describeSinglePlayerStartingStatus,
   describeSnapshotStatus
 } from "./boot-status.js";
 
@@ -25,6 +26,31 @@ describe("boot status", () => {
       title: "Joining room AB12CD",
       detail:
         "The canvas and overlay shell are mounted while the shared multiplayer session connects."
+    });
+  });
+
+  it("describes the default entry shell before a session starts", () => {
+    expect(
+      describeInitialBootStatus({
+        source: "default-single-player",
+        request: {
+          mode: "single-player"
+        }
+      })
+    ).toEqual({
+      badge: "Ready",
+      title: "Choose how to enter the arena",
+      detail:
+        "Solo play is the fastest path in, with multiplayer actions already surfaced beside it."
+    });
+  });
+
+  it("describes the single-player start transition separately", () => {
+    expect(describeSinglePlayerStartingStatus()).toEqual({
+      badge: "Single-player",
+      title: "Starting local session",
+      detail:
+        "The loopback session is spinning up while the lightweight game shell stays mounted."
     });
   });
 

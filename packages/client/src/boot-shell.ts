@@ -9,14 +9,17 @@ export type ClientBootShell = {
   canvas: HTMLCanvasElement;
   overlayRoot: HTMLDivElement;
   setStatus(status: BootStatusViewModel): void;
+  setPreGameVisible(visible: boolean): void;
+  setSinglePlayerPending(pending: boolean): void;
   dispose(): void;
 };
 
 export function mountClientBootShell(options: {
   appRoot: HTMLElement;
   resolution: SessionEntryResolution;
+  onStartSinglePlayer?: () => void;
 }): ClientBootShell {
-  const { appRoot, resolution } = options;
+  const { appRoot, onStartSinglePlayer, resolution } = options;
   const shell = document.createElement("div");
   shell.className = "client-shell";
 
@@ -33,6 +36,81 @@ export function mountClientBootShell(options: {
   overlayRoot.className = "overlay-root";
   overlayRoot.id = "overlay-root";
 
+  const overlayChrome = document.createElement("div");
+  overlayChrome.className = "overlay-chrome";
+
+  const preGamePanel = document.createElement("section");
+  preGamePanel.className = "pregame-panel";
+
+  const preGameEyebrow = document.createElement("p");
+  preGameEyebrow.className = "pregame-eyebrow";
+  preGameEyebrow.textContent = "Game Jam Boilerplate";
+
+  const preGameTitle = document.createElement("h1");
+  preGameTitle.className = "pregame-title";
+  preGameTitle.textContent = "Start fast, keep multiplayer close";
+
+  const preGameDetail = document.createElement("p");
+  preGameDetail.className = "pregame-detail";
+  preGameDetail.textContent =
+    "Jump into solo play immediately, while the room-based multiplayer path stays visible from the same screen.";
+
+  const actionGroup = document.createElement("div");
+  actionGroup.className = "pregame-actions";
+
+  const primaryAction = document.createElement("button");
+  primaryAction.className = "pregame-action pregame-action-primary";
+  primaryAction.type = "button";
+  primaryAction.textContent = "Play Solo";
+  primaryAction.addEventListener("click", () => {
+    if (primaryAction.disabled) {
+      return;
+    }
+
+    onStartSinglePlayer?.();
+  });
+
+  const multiplayerActions = [
+    {
+      label: "Quick Join",
+      detail: "Drop into the next available public room."
+    },
+    {
+      label: "Create Room",
+      detail: "Spin up a shareable room for friends."
+    },
+    {
+      label: "Join by Code",
+      detail: "Enter a short room code from an invite."
+    }
+  ];
+
+  actionGroup.append(primaryAction);
+  for (const action of multiplayerActions) {
+    const button = document.createElement("button");
+    button.className = "pregame-action pregame-action-secondary";
+    button.type = "button";
+    button.disabled = true;
+
+    const label = document.createElement("span");
+    label.className = "pregame-action-label";
+    label.textContent = action.label;
+
+    const detail = document.createElement("span");
+    detail.className = "pregame-action-detail";
+    detail.textContent = `${action.detail} Coming next.`;
+
+    button.append(label, detail);
+    actionGroup.append(button);
+  }
+
+  const preGameFooter = document.createElement("p");
+  preGameFooter.className = "pregame-footer";
+  preGameFooter.textContent =
+    resolution.source === "room-link"
+      ? `Invite link detected for room ${resolution.roomCode}.`
+      : "Room invite links still auto-connect when a valid room code is present in the URL.";
+
   const bootPanel = document.createElement("section");
   bootPanel.className = "boot-panel";
   bootPanel.setAttribute("aria-live", "polite");
@@ -46,8 +124,16 @@ export function mountClientBootShell(options: {
   const detail = document.createElement("p");
   detail.className = "boot-detail";
 
+  preGamePanel.append(
+    preGameEyebrow,
+    preGameTitle,
+    preGameDetail,
+    actionGroup,
+    preGameFooter
+  );
   bootPanel.append(badge, title, detail);
-  overlayRoot.append(bootPanel);
+  overlayChrome.append(preGamePanel, bootPanel);
+  overlayRoot.append(overlayChrome);
   shell.append(backdropCanvas, canvas, overlayRoot);
   appRoot.replaceChildren(shell);
 
@@ -80,14 +166,27 @@ export function mountClientBootShell(options: {
     detail.textContent = status.detail;
   };
 
+  const setPreGameVisible = (visible: boolean) => {
+    preGamePanel.hidden = !visible;
+  };
+
+  const setSinglePlayerPending = (pending: boolean) => {
+    primaryAction.disabled = pending;
+    primaryAction.textContent = pending ? "Starting Solo..." : "Play Solo";
+  };
+
   resizeCanvases();
   window.addEventListener("resize", resizeCanvases);
   setStatus(describeInitialBootStatus(resolution));
+  setPreGameVisible(resolution.source !== "room-link");
+  setSinglePlayerPending(false);
 
   return {
     canvas,
     overlayRoot,
     setStatus,
+    setPreGameVisible,
+    setSinglePlayerPending,
     dispose() {
       window.removeEventListener("resize", resizeCanvases);
     }

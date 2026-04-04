@@ -32,7 +32,7 @@
 - [x] P1: Make sure the sample mode works both through the loopback single-player path and through the multiplayer room path without special-case gameplay logic.
 - [x] P1: Verify late join by sending an authoritative room snapshot followed by live updates and ensuring a new client can enter an in-progress round in a valid state.
 
-- [ ] P1: Build the lightweight DOM/CSS UI shell with a small pre-game screen, single-player as the primary CTA, and multiplayer actions visible but secondary.
+- [x] P1: Build the lightweight DOM/CSS UI shell with a small pre-game screen, single-player as the primary CTA, and multiplayer actions visible but secondary.
 - [ ] P1: Add create room, quick join, and join-by-code flows to the UI shell, including room-link handling via URL parameters.
 - [ ] P1: Add local player name editing and settings controls to the UI shell with persistence integration.
 - [ ] P1: Add a minimal in-game HUD showing score, round timer, and room state relevant to the current mode.
@@ -46,6 +46,8 @@
 - [ ] P2: Review all deep module interfaces after the first end-to-end pass and simplify any surface area that became too chatty or leaked implementation details.
 
 ## Progress Log
+
+- 2026-04-04: Completed the UI-shell P1 task by replacing the immediate default single-player auto-start with a lightweight pre-game overlay that keeps `Play Solo` as the clear primary action, surfaces multiplayer actions as visible secondary affordances in the same shell, preserves valid invite-link auto-start behavior, and updates the boot status copy so the mounted client now reflects menu-driven startup instead of implicit session launch. Files changed: `packages/client/src/boot-shell.ts`, `packages/client/src/boot-status.ts`, `packages/client/src/boot-status.test.ts`, `packages/client/src/main.ts`, `packages/client/src/styles.css`, and `specs/boilerplate-implementation-plan.md`. Checks run: `pnpm exec vitest run packages/client/src/boot-status.test.ts` passed, `pnpm typecheck` passed, `pnpm lint` passed, and `pnpm --filter @gamejam/client build` passed with the existing Vite client chunk-size warning caused by the bundled Rapier payload. Next recommended task: add create room, quick join, and join-by-code flows to the UI shell, including room-link handling via URL parameters.
 
 - 2026-04-04: Completed the late-join verification P1 task by adding focused realtime transport integration coverage that drives a host room into an active round, joins a second client by room code after the round is already in progress, asserts that the newcomer receives the current authoritative snapshot on join, and then confirms the same client continues receiving live deltas on subsequent ticks. Files changed: `packages/server/src/realtime-transport.test.ts` and `specs/boilerplate-implementation-plan.md`. Checks run: `pnpm exec vitest run packages/server/src/realtime-transport.test.ts` passed, `pnpm typecheck` passed, and `pnpm lint` passed. Next recommended task: build the lightweight DOM/CSS UI shell with a small pre-game screen, single-player as the primary CTA, and multiplayer actions visible but secondary.
 

@@ -21,18 +21,27 @@ export function describeInitialBootStatus(
       };
     case "invalid-room-link":
       return {
-        badge: "Single-player",
+        badge: "Invite Link",
         title: "Invalid invite link",
-        detail: `Room code "${resolution.invalidRoomCode}" was invalid, so the client fell back to a local session.`
+        detail: `Room code "${resolution.invalidRoomCode}" was invalid. You can still start solo play while room actions stay visible in the shell.`
       };
     case "default-single-player":
       return {
-        badge: "Single-player",
-        title: "Preparing local session",
+        badge: "Ready",
+        title: "Choose how to enter the arena",
         detail:
-          "The asset-light client shell is ready and waiting for the loopback session."
+          "Solo play is the fastest path in, with multiplayer actions already surfaced beside it."
       };
   }
+}
+
+export function describeSinglePlayerStartingStatus(): BootStatusViewModel {
+  return {
+    badge: "Single-player",
+    title: "Starting local session",
+    detail:
+      "The loopback session is spinning up while the lightweight game shell stays mounted."
+  };
 }
 
 export function describeJoinedStatus(joined: SessionJoined): BootStatusViewModel {

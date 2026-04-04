@@ -50,16 +50,21 @@ body {
 .overlay-root {
   position: absolute;
   inset: 0;
-  display: flex;
-  align-items: flex-end;
-  justify-content: flex-start;
   padding: 1.5rem;
   pointer-events: none;
   z-index: 2;
 }
 
+.overlay-chrome {
+  display: flex;
+  min-height: 100%;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.pregame-panel,
 .boot-panel {
-  max-width: min(28rem, calc(100vw - 3rem));
   padding: 1rem 1.125rem;
   border: 1px solid rgba(146, 188, 255, 0.2);
   border-radius: 1rem;
@@ -69,12 +74,27 @@ body {
   pointer-events: auto;
 }
 
+.pregame-panel {
+  align-self: center;
+  width: min(30rem, calc(100vw - 3rem));
+}
+
+.boot-panel {
+  align-self: end;
+  max-width: min(24rem, 32vw);
+}
+
+.pregame-eyebrow,
+.pregame-title,
+.pregame-detail,
+.pregame-footer,
 .boot-badge,
 .boot-title,
 .boot-detail {
   margin: 0;
 }
 
+.pregame-eyebrow,
 .boot-badge {
   color: #89f3b5;
   font-size: 0.75rem;
@@ -83,26 +103,102 @@ body {
   text-transform: uppercase;
 }
 
+.pregame-title,
 .boot-title {
   margin-top: 0.45rem;
   font-size: clamp(1.8rem, 4vw, 2.4rem);
   line-height: 1.05;
 }
 
+.boot-title {
+  font-size: clamp(1.2rem, 2.4vw, 1.7rem);
+}
+
+.pregame-detail,
 .boot-detail {
   margin-top: 0.75rem;
   color: rgba(246, 247, 251, 0.8);
   font-size: 0.98rem;
 }
 
+.pregame-actions {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.pregame-action {
+  width: 100%;
+  border: 1px solid rgba(146, 188, 255, 0.2);
+  border-radius: 0.9rem;
+  padding: 0.9rem 1rem;
+  background: rgba(17, 27, 45, 0.82);
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  transition:
+    transform 120ms ease,
+    border-color 120ms ease,
+    background 120ms ease;
+}
+
+.pregame-action-primary {
+  border-color: rgba(137, 243, 181, 0.45);
+  background: linear-gradient(180deg, rgba(43, 81, 62, 0.95), rgba(21, 44, 34, 0.95));
+  font-weight: 700;
+}
+
+.pregame-action-primary:not(:disabled):hover,
+.pregame-action-primary:not(:disabled):focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(137, 243, 181, 0.7);
+  cursor: pointer;
+}
+
+.pregame-action-secondary {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.pregame-action:disabled {
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+
+.pregame-action-label {
+  display: block;
+  font-weight: 600;
+}
+
+.pregame-action-detail {
+  display: block;
+  color: rgba(246, 247, 251, 0.72);
+  font-size: 0.92rem;
+}
+
+.pregame-footer {
+  margin-top: 1rem;
+  color: rgba(246, 247, 251, 0.64);
+  font-size: 0.88rem;
+}
+
 @media (max-width: 640px) {
   .overlay-root {
-    align-items: stretch;
     padding: 1rem;
+  }
+
+  .overlay-chrome {
+    flex-direction: column;
+    justify-content: flex-end;
   }
 
   .boot-panel {
     align-self: end;
     max-width: none;
+  }
+
+  .pregame-panel {
+    align-self: stretch;
+    width: auto;
   }
 }
