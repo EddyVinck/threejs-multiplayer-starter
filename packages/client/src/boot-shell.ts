@@ -43,9 +43,17 @@ export function mountClientBootShell(options: {
     "applyAudioSettings" | "dispose" | "play"
   >;
   onStartSession?: (request: SessionStartRequest) => void;
+  /** Fires when the debug diagnostics toggle changes (after persistence). */
+  onDebugDiagnosticsChange?: (enabled: boolean) => void;
 }): ClientBootShell {
-  const { appRoot, audioManager, onStartSession, resolution, settingsStore } =
-    options;
+  const {
+    appRoot,
+    audioManager,
+    onDebugDiagnosticsChange,
+    onStartSession,
+    resolution,
+    settingsStore
+  } = options;
   const shell = document.createElement("div");
   shell.className = "client-shell";
 
@@ -158,11 +166,37 @@ export function mountClientBootShell(options: {
   audioRow.className = "pregame-settings-audio-row";
   audioRow.append(volumeLabel, volumeInput, muteLabel);
 
+  const debugDiagnosticsCheckbox = document.createElement("input");
+  debugDiagnosticsCheckbox.id = "pregame-debug-diagnostics";
+  debugDiagnosticsCheckbox.className = "pregame-settings-debug";
+  debugDiagnosticsCheckbox.type = "checkbox";
+
+  const debugDiagnosticsLabel = document.createElement("label");
+  debugDiagnosticsLabel.className = "pregame-settings-debug-label";
+  debugDiagnosticsLabel.htmlFor = "pregame-debug-diagnostics";
+  debugDiagnosticsLabel.append(
+    debugDiagnosticsCheckbox,
+    document.createTextNode(" Show debug overlay (FPS, net, tick)")
+  );
+
+  const debugDiagnosticsHint = document.createElement("p");
+  debugDiagnosticsHint.className = "pregame-settings-hint";
+  debugDiagnosticsHint.textContent =
+    "Small on-screen readout for iteration. Saved locally.";
+
+  const debugDiagnosticsField = document.createElement("div");
+  debugDiagnosticsField.className = "pregame-settings-field";
+  debugDiagnosticsField.append(
+    debugDiagnosticsLabel,
+    debugDiagnosticsHint
+  );
+
   const syncSettingsInputsFromStore = () => {
     const settings = settingsStore.getSettings();
     displayNameInput.value = settings.displayName ?? "";
     volumeInput.value = String(Math.round(settings.audio.volume * 100));
     muteCheckbox.checked = settings.audio.muted;
+    debugDiagnosticsCheckbox.checked = settings.debugDiagnostics;
   };
 
   syncSettingsInputsFromStore();
@@ -209,7 +243,19 @@ export function mountClientBootShell(options: {
     audioManager?.applyAudioSettings(settingsStore.getSettings().audio);
   });
 
-  settingsSection.append(settingsHeading, displayNameField, audioRow);
+  debugDiagnosticsCheckbox.addEventListener("change", () => {
+    settingsStore.patchSettings({
+      debugDiagnostics: debugDiagnosticsCheckbox.checked
+    });
+    onDebugDiagnosticsChange?.(debugDiagnosticsCheckbox.checked);
+  });
+
+  settingsSection.append(
+    settingsHeading,
+    displayNameField,
+    audioRow,
+    debugDiagnosticsField
+  );
 
   const actionGroup = document.createElement("div");
   actionGroup.className = "pregame-actions";
@@ -442,6 +488,7 @@ export function mountClientBootShell(options: {
     displayNameInput.disabled = hasPendingStart;
     volumeInput.disabled = hasPendingStart;
     muteCheckbox.disabled = hasPendingStart;
+    debugDiagnosticsCheckbox.disabled = hasPendingStart;
   };
 
   resizeCanvases();

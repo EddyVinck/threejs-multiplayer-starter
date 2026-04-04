@@ -33,6 +33,12 @@ export type GameSessionSubscribeOptions = {
   replayCurrent?: boolean;
 };
 
+/** Lightweight transport health for diagnostics; optional on sessions that support it. */
+export type ConnectionDiagnostics = {
+  transport: "loopback" | "websocket";
+  connected: boolean;
+};
+
 export type GameSession = {
   getSessionJoined(): SessionJoined | null;
   getLatestSnapshot(): RoomSnapshot | null;
@@ -43,4 +49,5 @@ export type GameSession = {
   ): () => void;
   stop(): void;
   isStopped(): boolean;
+  getConnectionDiagnostics?(): ConnectionDiagnostics;
 };

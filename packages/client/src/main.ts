@@ -4,6 +4,11 @@ import type { RoomSnapshot, SessionJoined } from "@gamejam/shared";
 
 import { createAudioManager } from "./audio-manager.js";
 import {
+  collectMemoryMb,
+  mountClientDiagnosticsOverlay,
+  type ClientDiagnosticsSnapshot
+} from "./client-diagnostics.js";
+import {
   describeProtocolErrorStatus,
   describeSessionStartingStatus,
   describeStartupFailureStatus,
@@ -27,6 +32,7 @@ import { applySessionRoomLink } from "./room-link.js";
 import { createSessionOrchestrator } from "./session-orchestrator.js";
 import { resolveInitialSessionEntry } from "./session-entry.js";
 import type { SessionStartRequest } from "./session-orchestrator.js";
+import type { GameSession } from "./session.js";
 
 const app = document.querySelector<HTMLDivElement>("#app");
 
@@ -44,6 +50,49 @@ const initialSessionRequest = applyPersistedDisplayName(
   initialSessionEntry.request,
   settingsStore.getSettings().displayName
 );
+
+let diagnosticsOverlay: ReturnType<typeof mountClientDiagnosticsOverlay> | null =
+  null;
+let lastFrameMetrics: {
+  fps: number;
+  canvasWidth: number;
+  canvasHeight: number;
+} | null = null;
+let activeSessionForDiagnostics: GameSession | null = null;
+
+function buildDiagnosticsSnapshot(): ClientDiagnosticsSnapshot {
+  const session = activeSessionForDiagnostics;
+  const sessionActive = session !== null && !session.isStopped();
+  const connection = session?.getConnectionDiagnostics?.() ?? null;
+  const serverTick = session?.getLatestSnapshot()?.serverTick ?? null;
+  const dpr =
+    typeof window !== "undefined" ? window.devicePixelRatio ?? 1 : null;
+
+  return {
+    fps: lastFrameMetrics?.fps ?? null,
+    connection,
+    serverTick,
+    canvasPixels:
+      lastFrameMetrics === null
+        ? null
+        : {
+            width: lastFrameMetrics.canvasWidth,
+            height: lastFrameMetrics.canvasHeight
+          },
+    dpr,
+    memoryMb: collectMemoryMb(),
+    sessionActive
+  };
+}
+
+function refreshDiagnostics(): void {
+  if (!settingsStore.getSettings().debugDiagnostics || diagnosticsOverlay === null) {
+    return;
+  }
+
+  diagnosticsOverlay.update(buildDiagnosticsSnapshot());
+}
+
 const bootShell = mountClientBootShell({
   appRoot: app,
   audioManager,
@@ -51,8 +100,19 @@ const bootShell = mountClientBootShell({
   settingsStore,
   onStartSession: (request) => {
     void startSession(request);
+  },
+  onDebugDiagnosticsChange: (enabled) => {
+    diagnosticsOverlay?.setEnabled(enabled);
+    if (enabled) {
+      refreshDiagnostics();
+    }
   }
 });
+diagnosticsOverlay = mountClientDiagnosticsOverlay(bootShell.overlayRoot);
+diagnosticsOverlay.setEnabled(settingsStore.getSettings().debugDiagnostics);
+if (settingsStore.getSettings().debugDiagnostics) {
+  refreshDiagnostics();
+}
 let stopCommandPipeline: (() => void) | null = null;
 let renderSceneAdapter: ReturnType<typeof createRenderSceneAdapter> | null = null;
 let unsubscribeFromSession: (() => void) | null = null;
@@ -81,7 +141,11 @@ async function startSession(
   unsubscribeFromSession = null;
 
   try {
+    activeSessionForDiagnostics = null;
+    lastFrameMetrics = null;
+
     const session = await orchestrator.startSession(hydratedRequest);
+    activeSessionForDiagnostics = session;
     const scoreObservation = createLocalScoreObservationState();
     const roundObservation = createRoundTransitionObservationState();
 
@@ -107,8 +171,17 @@ async function startSession(
     };
 
     renderSceneAdapter?.dispose();
+    lastFrameMetrics = null;
     renderSceneAdapter = createRenderSceneAdapter({
-      canvas: bootShell.canvas
+      canvas: bootShell.canvas,
+      onFrameMetrics: (metrics) => {
+        lastFrameMetrics = {
+          fps: metrics.fps,
+          canvasWidth: metrics.canvasWidth,
+          canvasHeight: metrics.canvasHeight
+        };
+        refreshDiagnostics();
+      }
     });
 
     stopCommandPipeline?.();
@@ -143,6 +216,8 @@ async function startSession(
     }
 
     unsubscribeFromSession = session.subscribe((event) => {
+      refreshDiagnostics();
+
       if (event.type === "joined") {
         resetLocalScoreObservation(scoreObservation);
         resetRoundTransitionObservation(roundObservation);
@@ -193,10 +268,13 @@ async function startSession(
         stopCommandPipeline?.();
         stopCommandPipeline = null;
         renderSceneAdapter?.stop();
+        activeSessionForDiagnostics = null;
+        lastFrameMetrics = null;
         bootShell.setPendingSessionStart(null);
         bootShell.setInGameHudVisible(false);
         bootShell.setPreGameVisible(true);
         bootShell.setStatus(describeStoppedStatus());
+        refreshDiagnostics();
       }
     });
   } catch (error: unknown) {
@@ -208,6 +286,8 @@ async function startSession(
     stopCommandPipeline = null;
     renderSceneAdapter?.dispose();
     renderSceneAdapter = null;
+    activeSessionForDiagnostics = null;
+    lastFrameMetrics = null;
     bootShell.setPendingSessionStart(null);
     bootShell.setPreGameVisible(true);
     const message =

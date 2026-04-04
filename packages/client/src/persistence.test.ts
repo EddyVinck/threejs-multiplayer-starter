@@ -48,7 +48,8 @@ describe("client settings persistence", () => {
       audio: {
         volume: 0.4,
         muted: true
-      }
+      },
+      debugDiagnostics: false
     });
     expect(JSON.parse(storage.getItem("gamejam.client-settings") ?? "null")).toEqual({
       version: 1,
@@ -57,7 +58,8 @@ describe("client settings persistence", () => {
         audio: {
           volume: 0.4,
           muted: true
-        }
+        },
+        debugDiagnostics: false
       }
     });
 
@@ -68,7 +70,8 @@ describe("client settings persistence", () => {
       audio: {
         volume: 0.4,
         muted: true
-      }
+      },
+      debugDiagnostics: false
     });
   });
 
@@ -91,7 +94,8 @@ describe("client settings persistence", () => {
       audio: {
         volume: 0.25,
         muted: true
-      }
+      },
+      debugDiagnostics: false
     });
     expect(JSON.parse(storage.getItem("gamejam.client-settings") ?? "null")).toEqual({
       version: 1,
@@ -100,7 +104,8 @@ describe("client settings persistence", () => {
         audio: {
           volume: 0.25,
           muted: true
-        }
+        },
+        debugDiagnostics: false
       }
     });
     expect(storage.getItem("gamejam.settings")).toBeNull();
@@ -118,7 +123,8 @@ describe("client settings persistence", () => {
       audio: {
         volume: 1,
         muted: false
-      }
+      },
+      debugDiagnostics: false
     });
     expect(JSON.parse(storage.getItem("gamejam.client-settings") ?? "null")).toEqual({
       version: 1,
@@ -127,7 +133,8 @@ describe("client settings persistence", () => {
         audio: {
           volume: 1,
           muted: false
-        }
+        },
+        debugDiagnostics: false
       }
     });
   });
@@ -165,7 +172,8 @@ describe("client settings persistence", () => {
       audio: {
         volume: 0.75,
         muted: true
-      }
+      },
+      debugDiagnostics: false
     });
     expect(JSON.parse(storage.getItem("gamejam.client-settings") ?? "null")).toEqual({
       version: 1,
@@ -174,7 +182,8 @@ describe("client settings persistence", () => {
         audio: {
           volume: 0.75,
           muted: true
-        }
+        },
+        debugDiagnostics: false
       }
     });
   });
@@ -205,7 +214,8 @@ describe("client settings persistence", () => {
       audio: {
         volume: 0.6,
         muted: false
-      }
+      },
+      debugDiagnostics: false
     });
     expect(JSON.parse(storage.getItem("gamejam.client-settings") ?? "null")).toEqual({
       version: 1,
@@ -214,7 +224,8 @@ describe("client settings persistence", () => {
         audio: {
           volume: 0.6,
           muted: false
-        }
+        },
+        debugDiagnostics: false
       }
     });
   });

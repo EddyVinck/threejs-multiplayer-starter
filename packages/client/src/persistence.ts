@@ -10,6 +10,8 @@ export type ClientSettings = {
     volume: number;
     muted: boolean;
   };
+  /** When true, show FPS, transport, and other lightweight runtime diagnostics. */
+  debugDiagnostics: boolean;
 };
 
 export type ClientSettingsPatch = {
@@ -18,6 +20,7 @@ export type ClientSettingsPatch = {
     volume?: number;
     muted?: boolean;
   };
+  debugDiagnostics?: boolean;
 };
 
 export type ClientSettingsStore = {
@@ -47,7 +50,8 @@ const DEFAULT_SETTINGS: ClientSettings = Object.freeze({
   audio: Object.freeze({
     volume: 1,
     muted: false
-  })
+  }),
+  debugDiagnostics: false
 });
 
 export function createClientSettingsStore(
@@ -98,6 +102,9 @@ export function createClientSettingsStore(
         ...(patch.displayName === undefined
           ? {}
           : { displayName: patch.displayName }),
+        ...(patch.debugDiagnostics === undefined
+          ? {}
+          : { debugDiagnostics: patch.debugDiagnostics }),
         audio: {
           ...currentSettings.audio,
           ...patch.audio
@@ -258,7 +265,11 @@ function normalizeClientSettings(
     audio: {
       volume: normalizeVolume(audioRecord.volume, defaultSettings.audio.volume),
       muted: normalizeBoolean(audioRecord.muted, defaultSettings.audio.muted)
-    }
+    },
+    debugDiagnostics: normalizeBoolean(
+      settingsRecord.debugDiagnostics,
+      defaultSettings.debugDiagnostics
+    )
   };
 }
 
@@ -343,7 +354,8 @@ function cloneClientSettings(settings: ClientSettings): ClientSettings {
     audio: {
       volume: settings.audio.volume,
       muted: settings.audio.muted
-    }
+    },
+    debugDiagnostics: settings.debugDiagnostics
   };
 }
 

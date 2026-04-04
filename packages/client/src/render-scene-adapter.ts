@@ -36,6 +36,13 @@ type PickupVisual = {
   material: THREE.MeshStandardMaterial;
 };
 
+export type FrameMetricsPayload = {
+  frameTimeMs: number;
+  fps: number;
+  canvasWidth: number;
+  canvasHeight: number;
+};
+
 export type RenderSceneAdapterOptions = {
   canvas: HTMLCanvasElement;
   cameraController?: CameraController;
@@ -44,6 +51,8 @@ export type RenderSceneAdapterOptions = {
   movementRuntime?: MovementRuntime;
   cancelAnimationFrame?: typeof globalThis.cancelAnimationFrame;
   requestAnimationFrame?: typeof globalThis.requestAnimationFrame;
+  /** Called once per rendered frame after `renderer.render` (for diagnostics). */
+  onFrameMetrics?: (metrics: FrameMetricsPayload) => void;
 };
 
 export type RenderSceneAdapter = {
@@ -108,6 +117,10 @@ export function createRenderSceneAdapter(
   let disposed = false;
   let rendererWidth = 0;
   let rendererHeight = 0;
+  let fpsWindowStartMs = 0;
+  let fpsFramesInWindow = 0;
+  let lastReportedFps = 0;
+  const onFrameMetrics = options.onFrameMetrics;
 
   function syncRuntimeSnapshot(snapshot: RoomSnapshot): void {
     if (joined === null) {
@@ -185,6 +198,26 @@ export function createRenderSceneAdapter(
     }
 
     renderer.render(scene, camera);
+
+    if (onFrameMetrics !== undefined) {
+      if (fpsFramesInWindow === 0) {
+        fpsWindowStartMs = frameTimeMs;
+      }
+      fpsFramesInWindow += 1;
+      const elapsed = frameTimeMs - fpsWindowStartMs;
+      if (elapsed >= 500) {
+        lastReportedFps = Math.round((fpsFramesInWindow / elapsed) * 1000);
+        fpsWindowStartMs = frameTimeMs;
+        fpsFramesInWindow = 0;
+      }
+
+      onFrameMetrics({
+        frameTimeMs,
+        fps: lastReportedFps,
+        canvasWidth: options.canvas.width,
+        canvasHeight: options.canvas.height
+      });
+    }
   }
 
   function syncSceneSnapshot(snapshot: RoomSnapshot): void {
@@ -423,6 +456,9 @@ export function createRenderSceneAdapter(
         frameHandle = null;
       }
       lastFrameTimeMs = null;
+      fpsWindowStartMs = 0;
+      fpsFramesInWindow = 0;
+      lastReportedFps = 0;
     },
 
     isRunning() {

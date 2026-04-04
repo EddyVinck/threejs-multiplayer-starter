@@ -22,6 +22,10 @@ class FakeSocket {
 
   disconnected = false;
 
+  get connected(): boolean {
+    return !this.disconnected;
+  }
+
   private listeners = new Map<string, Set<SocketListener>>();
 
   on(eventType: string, listener: SocketListener): this {

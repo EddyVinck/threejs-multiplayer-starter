@@ -164,6 +164,13 @@ export function createLoopbackSession(
 
     isStopped() {
       return stopped;
+    },
+
+    getConnectionDiagnostics() {
+      return {
+        transport: "loopback",
+        connected: !stopped
+      };
     }
   };
 }

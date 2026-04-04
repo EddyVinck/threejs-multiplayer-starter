@@ -52,6 +52,7 @@ export type RemoteSessionStartRequest =
   | JoinRoomByCodeSessionRequest;
 
 type RealtimeSocket = {
+  readonly connected: boolean;
   connect(): unknown;
   disconnect(): unknown;
   emit(eventType: string, payload: unknown): boolean;
@@ -280,6 +281,13 @@ export async function startRemoteSession(
 
     isStopped() {
       return stopped;
+    },
+
+    getConnectionDiagnostics() {
+      return {
+        transport: "websocket",
+        connected: socket.connected && !stopped
+      };
     }
   };
 
