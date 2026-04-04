@@ -23,6 +23,7 @@ import {
   type SimulationPlayerState,
   type SimulationRules
 } from "./simulation.js";
+import { createArenaGameplayModule } from "./arena-gameplay.js";
 
 export type SimulationCoreOptions = {
   roomId: AuthoritativeRoomState["roomId"];
@@ -115,38 +116,8 @@ function ticksToMs(ticks: number, tickRate: number): number {
   return Math.max(0, Math.round((ticks * 1000) / tickRate));
 }
 
-function vectorLengthSquared(vector: Vector3): number {
-  return vector.x ** 2 + vector.y ** 2 + vector.z ** 2;
-}
-
 function areVectorsEqual(left: Vector3, right: Vector3): boolean {
   return left.x === right.x && left.y === right.y && left.z === right.z;
-}
-
-function pickSpawnIndex(playerId: PlayerId, spawnCount: number): number {
-  let hash = 0;
-  for (const character of playerId) {
-    hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
-  }
-
-  return hash % spawnCount;
-}
-
-function createPickupState(
-  arena: ArenaLayout,
-  rules: SimulationRules
-): SimulationPickupState[] {
-  return arena.pickupSpawns.map((spawnPoint) => ({
-    pickupId: spawnPoint.pickupId,
-    kind: spawnPoint.kind,
-    spawnId: spawnPoint.pickupId,
-    position: cloneVector3(spawnPoint.position),
-    active: true,
-    scoreValue: rules.pickup.scoreValue,
-    collectedByPlayerId: null,
-    collectedAtTick: null,
-    respawnAtTick: null
-  }));
 }
 
 function buildRoundState(state: MutableState): RoomSnapshot["round"] {
@@ -232,6 +203,10 @@ export function createSimulationCore(
   options: SimulationCoreOptions
 ): SimulationCore {
   const rules = simulationRulesSchema.parse(options.rules ?? defaultSimulationRules);
+  const arenaGameplay = createArenaGameplayModule({
+    arena: options.arena,
+    rules
+  });
 
   const state: MutableState = authoritativeRoomStateSchema.parse({
     roomId: options.roomId,
@@ -250,7 +225,7 @@ export function createSimulationCore(
       reset: null
     },
     players: [],
-    pickups: createPickupState(options.arena, rules)
+    pickups: arenaGameplay.createInitialPickups()
   });
 
   const dirty = emptyDirtyState();
@@ -274,50 +249,21 @@ export function createSimulationCore(
   }
 
   function getSpawnForPlayer(playerId: PlayerId) {
-    const spawnIndex = pickSpawnIndex(
-      playerId,
-      state.arena.playerSpawns.length
-    );
-    const fallbackSpawn = state.arena.playerSpawns[0];
+    return arenaGameplay.getSpawnForPlayer(playerId);
+  }
 
-    if (!fallbackSpawn) {
-      throw new Error("arena must define at least one player spawn");
+  function resetArenaGameplayRoundState(): void {
+    const result = arenaGameplay.resetRound({
+      players: state.players,
+      pickups: state.pickups
+    });
+
+    for (const playerId of result.updatedPlayerIds) {
+      markPlayerDirty(playerId);
     }
 
-    return state.arena.playerSpawns[spawnIndex] ?? fallbackSpawn;
-  }
-
-  function resetPlayerForRound(player: SimulationPlayerState): void {
-    const spawn = getSpawnForPlayer(player.playerId);
-    player.spawnId = spawn.spawnId;
-    player.position = cloneVector3(spawn.position);
-    player.velocity = { x: 0, y: 0, z: 0 };
-    player.yaw = spawn.yaw;
-    player.score = {
-      total: 0,
-      pickupsCollected: 0,
-      lastPickupTick: null
-    };
-    markPlayerDirty(player.playerId);
-  }
-
-  function resetPickupsForRound(): void {
-    for (const pickup of state.pickups) {
-      const spawn = state.arena.pickupSpawns.find(
-        (spawnPoint) => spawnPoint.pickupId === pickup.pickupId
-      );
-
-      if (!spawn) {
-        continue;
-      }
-
-      pickup.position = cloneVector3(spawn.position);
-      pickup.kind = spawn.kind;
-      pickup.active = true;
-      pickup.collectedAtTick = null;
-      pickup.collectedByPlayerId = null;
-      pickup.respawnAtTick = null;
-      markPickupDirty(pickup.pickupId);
+    for (const pickupId of result.updatedPickupIds) {
+      markPickupDirty(pickupId);
     }
   }
 
@@ -365,11 +311,7 @@ export function createSimulationCore(
   }
 
   function completeRoundReset(events: SimulationCoreEvent[]): void {
-    resetPickupsForRound();
-
-    for (const player of state.players) {
-      resetPlayerForRound(player);
-    }
+    resetArenaGameplayRoundState();
 
     if (state.players.length === 0) {
       transitionToWaiting();
@@ -434,79 +376,44 @@ export function createSimulationCore(
   }
 
   function maybeRespawnPickups(events: SimulationCoreEvent[]): void {
-    for (const pickup of state.pickups) {
-      if (
-        pickup.active ||
-        pickup.respawnAtTick === null ||
-        state.serverTick < pickup.respawnAtTick
-      ) {
-        continue;
-      }
+    const result = arenaGameplay.respawnCollectedPickups({
+      pickups: state.pickups,
+      serverTick: state.serverTick
+    });
 
-      const spawn = state.arena.pickupSpawns.find(
-        (spawnPoint) => spawnPoint.pickupId === pickup.pickupId
-      );
-      if (!spawn) {
-        continue;
-      }
+    for (const pickupId of result.updatedPickupIds) {
+      markPickupDirty(pickupId);
+    }
 
-      pickup.position = cloneVector3(spawn.position);
-      pickup.active = true;
-      pickup.collectedAtTick = null;
-      pickup.collectedByPlayerId = null;
-      pickup.respawnAtTick = null;
-      markPickupDirty(pickup.pickupId);
+    for (const respawnedPickup of result.respawnedPickups) {
       events.push({
         type: "pickup-respawned",
-        pickupId: pickup.pickupId
+        pickupId: respawnedPickup.pickupId
       });
     }
   }
 
   function maybeCollectPickups(events: SimulationCoreEvent[]): void {
-    const collisionDistance =
-      state.rules.playerCollisionRadius + state.rules.pickup.collisionRadius;
-    const collisionDistanceSquared = collisionDistance ** 2;
+    const result = arenaGameplay.collectAvailablePickups({
+      players: state.players,
+      pickups: state.pickups,
+      serverTick: state.serverTick
+    });
 
-    for (const pickup of state.pickups) {
-      if (!pickup.active) {
-        continue;
-      }
+    for (const playerId of result.updatedPlayerIds) {
+      markPlayerDirty(playerId);
+    }
 
-      const collector = state.players.find((player) => {
-        if (!player.connected) {
-          return false;
-        }
+    for (const pickupId of result.updatedPickupIds) {
+      markPickupDirty(pickupId);
+    }
 
-        const offset = {
-          x: player.position.x - pickup.position.x,
-          y: player.position.y - pickup.position.y,
-          z: player.position.z - pickup.position.z
-        };
-
-        return vectorLengthSquared(offset) <= collisionDistanceSquared;
-      });
-
-      if (!collector) {
-        continue;
-      }
-
-      pickup.active = false;
-      pickup.collectedByPlayerId = collector.playerId;
-      pickup.collectedAtTick = state.serverTick;
-      pickup.respawnAtTick = state.serverTick + state.rules.pickup.respawnTicks;
-      markPickupDirty(pickup.pickupId);
-
-      collector.score.total += pickup.scoreValue;
-      collector.score.pickupsCollected += 1;
-      collector.score.lastPickupTick = state.serverTick;
-      markPlayerDirty(collector.playerId);
-
+    for (const collectedPickup of result.collectedPickups) {
       events.push({
         type: "pickup-collected",
-        playerId: collector.playerId,
-        pickupId: pickup.pickupId,
-        scoreAwarded: pickup.scoreValue
+        playerId: collectedPickup.playerId,
+        pickupId: collectedPickup.pickupId,
+        scoreAwarded: collectedPickup.scoreAwarded
       });
     }
   }
@@ -597,7 +504,7 @@ export function createSimulationCore(
       dirty.removedPlayers.add(playerId);
 
       if (state.players.length === 0) {
-        resetPickupsForRound();
+        resetArenaGameplayRoundState();
         state.round.roundNumber = 0;
         transitionToWaiting();
       } else {
