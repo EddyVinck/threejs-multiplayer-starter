@@ -9,12 +9,16 @@ import {
   type ClientDiagnosticsSnapshot
 } from "./client-diagnostics.js";
 import {
+  describeInitialBootStatus,
   describeProtocolErrorStatus,
   describeSessionStartingStatus,
   describeStartupFailureStatus,
   describeStoppedStatus
 } from "./boot-status.js";
-import { mountClientBootShell } from "./boot-shell.js";
+import {
+  mountClientBootShell,
+  type ClientBootShellViewState
+} from "./boot-shell.js";
 import { createClientSettingsStore } from "./persistence.js";
 import { createPlayerCommandPipeline } from "./player-command-pipeline.js";
 import {
@@ -50,6 +54,12 @@ const initialSessionRequest = applyPersistedDisplayName(
   initialSessionEntry.request,
   settingsStore.getSettings().displayName
 );
+let bootShellViewState: ClientBootShellViewState = {
+  status: describeInitialBootStatus(initialSessionEntry),
+  preGameVisible: initialSessionEntry.source !== "room-link",
+  pendingSessionStart: null,
+  inGameHud: null
+};
 
 let diagnosticsOverlay: ReturnType<typeof mountClientDiagnosticsOverlay> | null =
   null;
@@ -108,6 +118,17 @@ const bootShell = mountClientBootShell({
     }
   }
 });
+
+function updateBootShellView(
+  patch: Partial<ClientBootShellViewState>
+): void {
+  bootShellViewState = {
+    ...bootShellViewState,
+    ...patch
+  };
+  bootShell.syncView(bootShellViewState);
+}
+
 diagnosticsOverlay = mountClientDiagnosticsOverlay(bootShell.overlayRoot);
 diagnosticsOverlay.setEnabled(settingsStore.getSettings().debugDiagnostics);
 if (settingsStore.getSettings().debugDiagnostics) {
@@ -134,9 +155,12 @@ async function startSession(
     settingsStore.getSettings().displayName
   );
 
-  bootShell.setPendingSessionStart(hydratedRequest.mode);
-  bootShell.setStatus(describeSessionStartingStatus(hydratedRequest));
-  bootShell.setPreGameVisible(false);
+  updateBootShellView({
+    pendingSessionStart: hydratedRequest.mode,
+    status: describeSessionStartingStatus(hydratedRequest),
+    preGameVisible: false,
+    inGameHud: null
+  });
   unsubscribeFromSession?.();
   unsubscribeFromSession = null;
 
@@ -205,12 +229,19 @@ async function startSession(
     }
 
     renderSceneAdapter.start();
-    bootShell.setPendingSessionStart(null);
-    bootShell.setPreGameVisible(false);
+    updateBootShellView({
+      pendingSessionStart: null,
+      preGameVisible: false,
+      inGameHud:
+        joinedSession === null
+          ? null
+          : {
+              joined: joinedSession,
+              snapshot: latestSnapshot
+            }
+    });
 
     if (joinedSession !== null) {
-      bootShell.setInGameHudVisible(true);
-      bootShell.updateInGameHud(joinedSession, latestSnapshot);
       considerPickupSound(joinedSession, latestSnapshot);
       considerRoundTransitionSound(latestSnapshot);
     }
@@ -223,13 +254,16 @@ async function startSession(
         resetRoundTransitionObservation(roundObservation);
         syncRoomLink(event.joined);
         renderSceneAdapter?.syncSessionJoined(event.joined);
-        bootShell.setInGameHudVisible(true);
-        bootShell.updateInGameHud(
-          event.joined,
-          session.getLatestSnapshot()
-        );
-        considerPickupSound(event.joined, session.getLatestSnapshot());
-        considerRoundTransitionSound(session.getLatestSnapshot());
+        const joinedSnapshot = session.getLatestSnapshot();
+        updateBootShellView({
+          preGameVisible: false,
+          inGameHud: {
+            joined: event.joined,
+            snapshot: joinedSnapshot
+          }
+        });
+        considerPickupSound(event.joined, joinedSnapshot);
+        considerRoundTransitionSound(joinedSnapshot);
         return;
       }
 
@@ -237,7 +271,12 @@ async function startSession(
         renderSceneAdapter?.syncAuthoritativeSnapshot(event.snapshot);
         const joined = session.getSessionJoined();
         if (joined !== null) {
-          bootShell.updateInGameHud(joined, event.snapshot);
+          updateBootShellView({
+            inGameHud: {
+              joined,
+              snapshot: event.snapshot
+            }
+          });
           considerPickupSound(joined, event.snapshot);
           considerRoundTransitionSound(event.snapshot);
         }
@@ -250,7 +289,12 @@ async function startSession(
           renderSceneAdapter?.syncAuthoritativeSnapshot(updatedSnapshot);
           const joined = session.getSessionJoined();
           if (joined !== null) {
-            bootShell.updateInGameHud(joined, updatedSnapshot);
+            updateBootShellView({
+              inGameHud: {
+                joined,
+                snapshot: updatedSnapshot
+              }
+            });
             considerPickupSound(joined, updatedSnapshot);
             considerRoundTransitionSound(updatedSnapshot);
           }
@@ -259,8 +303,10 @@ async function startSession(
       }
 
       if (event.type === "protocol-error") {
-        bootShell.setInGameHudVisible(false);
-        bootShell.setStatus(describeProtocolErrorStatus(event.error));
+        updateBootShellView({
+          inGameHud: null,
+          status: describeProtocolErrorStatus(event.error)
+        });
         return;
       }
 
@@ -270,10 +316,12 @@ async function startSession(
         renderSceneAdapter?.stop();
         activeSessionForDiagnostics = null;
         lastFrameMetrics = null;
-        bootShell.setPendingSessionStart(null);
-        bootShell.setInGameHudVisible(false);
-        bootShell.setPreGameVisible(true);
-        bootShell.setStatus(describeStoppedStatus());
+        updateBootShellView({
+          pendingSessionStart: null,
+          inGameHud: null,
+          preGameVisible: true,
+          status: describeStoppedStatus()
+        });
         refreshDiagnostics();
       }
     });
@@ -288,11 +336,14 @@ async function startSession(
     renderSceneAdapter = null;
     activeSessionForDiagnostics = null;
     lastFrameMetrics = null;
-    bootShell.setPendingSessionStart(null);
-    bootShell.setPreGameVisible(true);
     const message =
       error instanceof Error ? error.message : "failed to start session";
-    bootShell.setStatus(describeStartupFailureStatus(message));
+    updateBootShellView({
+      pendingSessionStart: null,
+      preGameVisible: true,
+      inGameHud: null,
+      status: describeStartupFailureStatus(message)
+    });
 
     if (options.autoStarted) {
       return;

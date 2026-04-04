@@ -166,7 +166,16 @@ describe("boot shell settings", () => {
       settingsStore
     });
 
-    shell.setPendingSessionStart("quick-join");
+    shell.syncView({
+      status: {
+        badge: "Connecting",
+        title: "Quick Join",
+        detail: "Joining the next room."
+      },
+      preGameVisible: false,
+      pendingSessionStart: "quick-join",
+      inGameHud: null
+    });
 
     const nameInput = appRoot.querySelector<HTMLInputElement>(
       "#pregame-display-name"
@@ -179,7 +188,16 @@ describe("boot shell settings", () => {
     expect(volumeInput?.disabled).toBe(true);
     expect(muteInput?.disabled).toBe(true);
 
-    shell.setPendingSessionStart(null);
+    shell.syncView({
+      status: {
+        badge: "Ready",
+        title: "Back",
+        detail: "Controls re-enabled."
+      },
+      preGameVisible: true,
+      pendingSessionStart: null,
+      inGameHud: null
+    });
 
     expect(nameInput?.disabled).toBe(false);
     expect(volumeInput?.disabled).toBe(false);

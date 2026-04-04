@@ -19,17 +19,20 @@ import { resolveRenderCanvasSize } from "./render-budget.js";
 import type { SessionEntryResolution } from "./session-entry.js";
 import type { SessionStartRequest } from "./session-orchestrator.js";
 
+export type ClientBootShellViewState = {
+  status: BootStatusViewModel;
+  preGameVisible: boolean;
+  pendingSessionStart: SessionStartRequest["mode"] | null;
+  inGameHud: {
+    joined: SessionJoined;
+    snapshot: RoomSnapshot | null;
+  } | null;
+};
+
 export type ClientBootShell = {
   canvas: HTMLCanvasElement;
   overlayRoot: HTMLDivElement;
-  setStatus(status: BootStatusViewModel): void;
-  setPreGameVisible(visible: boolean): void;
-  setPendingSessionStart(mode: SessionStartRequest["mode"] | null): void;
-  setInGameHudVisible(visible: boolean): void;
-  updateInGameHud(
-    joined: SessionJoined,
-    snapshot: RoomSnapshot | null
-  ): void;
+  syncView(state: ClientBootShellViewState): void;
   dispose(): void;
 };
 
@@ -491,20 +494,30 @@ export function mountClientBootShell(options: {
     debugDiagnosticsCheckbox.disabled = hasPendingStart;
   };
 
+  const syncView = (state: ClientBootShellViewState) => {
+    setStatus(state.status);
+    setPreGameVisible(state.preGameVisible);
+    setPendingSessionStart(state.pendingSessionStart);
+    setInGameHudVisible(state.inGameHud !== null);
+
+    if (state.inGameHud !== null) {
+      updateInGameHud(state.inGameHud.joined, state.inGameHud.snapshot);
+    }
+  };
+
   resizeCanvases();
   window.addEventListener("resize", resizeCanvases);
-  setStatus(describeInitialBootStatus(resolution));
-  setPreGameVisible(resolution.source !== "room-link");
-  setPendingSessionStart(null);
+  syncView({
+    status: describeInitialBootStatus(resolution),
+    preGameVisible: resolution.source !== "room-link",
+    pendingSessionStart: null,
+    inGameHud: null
+  });
 
   return {
     canvas,
     overlayRoot,
-    setStatus,
-    setPreGameVisible,
-    setPendingSessionStart,
-    setInGameHudVisible,
-    updateInGameHud,
+    syncView,
     dispose() {
       window.removeEventListener("resize", resizeCanvases);
       audioManager?.dispose();

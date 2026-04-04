@@ -23,7 +23,7 @@ import {
   type SimulationRules
 } from "@gamejam/shared";
 
-import { createSimulationCore, type SimulationCore } from "./simulation-core.js";
+import { createSimulationCore } from "./simulation-core.js";
 import type { GlobalAuthoritativeTickLoop } from "./server-foundation.js";
 
 const defaultSampleMode = resolveSampleModeConfig();
@@ -107,7 +107,6 @@ export type RoomRuntime = {
   getMemberCount(): number;
   isAvailableForQuickJoin(): boolean;
   isDisposed(): boolean;
-  getSimulationCore(): SimulationCore;
 };
 
 export type CreateRoomSessionRequest = {
@@ -411,10 +410,6 @@ export function createRoomRuntime(options: RoomRuntimeOptions): RoomRuntime {
 
     isDisposed() {
       return disposed;
-    },
-
-    getSimulationCore() {
-      return core;
     }
   };
 }
