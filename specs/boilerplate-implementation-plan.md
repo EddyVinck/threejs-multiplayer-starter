@@ -37,7 +37,7 @@
 - [x] P1: Add local player name editing and settings controls to the UI shell with persistence integration.
 - [x] P1: Add a minimal in-game HUD showing score, round timer, and room state relevant to the current mode.
 
-- [ ] P2: Build the Web Audio API-based audio manager as a deep module with unlock-on-user-gesture behavior, master gain, mute, volume, and simple named playback hooks.
+- [x] P2: Build the Web Audio API-based audio manager as a deep module with unlock-on-user-gesture behavior, master gain, mute, volume, and simple named playback hooks.
 - [ ] P2: Integrate lightweight audio cues for pickup collection, UI interactions, and round transitions without introducing large bundled audio assets.
 - [ ] P2: Add client-side diagnostics for FPS, connection state, and other lightweight runtime signals behind a debug toggle.
 - [ ] P2: Add manual smoke-test scripts or checklists for single-player start, room creation, quick join, join by code, URL join, late join, round reset, reconnect behavior, and production build startup.
@@ -46,6 +46,8 @@
 - [ ] P2: Review all deep module interfaces after the first end-to-end pass and simplify any surface area that became too chatty or leaked implementation details.
 
 ## Progress Log
+
+- 2026-04-04: Completed the Web Audio P2 task by adding a client `audio-manager` deep module with lazy `AudioContext` creation, a single master gain stage wired to persisted volume/mute, gesture-based `resume()` unlock on `document` (`pointerdown`, `keydown`, `touchstart`), procedural one-shot cues for named hooks (`uiTap`, `menuNavigate`, `pickup`, `roundTransition`) with no bundled assets, optional test injection for `AudioContext` and unlock root, wiring `main.ts` to hydrate gain from the settings store on boot and passing the manager into `mountClientBootShell` so pre-game slider/checkbox updates apply immediately, disposing the manager from the boot shell teardown path, and adding Vitest coverage for gain application, unlock-to-play gating, and dispose behavior. Files changed: `packages/client/src/audio-manager.ts`, `packages/client/src/audio-manager.test.ts`, `packages/client/src/boot-shell.ts`, `packages/client/src/main.ts`, and `specs/boilerplate-implementation-plan.md`. Checks run: `pnpm test` passed, `pnpm typecheck` passed, and `pnpm lint` passed. Next recommended task: integrate lightweight audio cues for pickup collection, UI interactions, and round transitions (P2).
 
 - 2026-04-04: Completed the minimal in-game HUD P1 task by adding a dedicated `in-game-hud` view-model builder (local score from `SessionJoined.playerId`, round phase and mm:ss timer from the authoritative snapshot, and a compact room/mode line for solo versus public/private multiplayer including late-join hint), mounting a top-left glass panel in the boot overlay with `setInGameHudVisible` / `updateInGameHud` on `ClientBootShell`, wiring `main.ts` to drive the HUD on join and snapshot/delta updates while hiding the verbose boot status panel during play, restoring the boot panel on protocol errors or session stop, and adding Vitest coverage for the pure HUD formatter. Files changed: `packages/client/src/in-game-hud.ts`, `packages/client/src/in-game-hud.test.ts`, `packages/client/src/boot-shell.ts`, `packages/client/src/main.ts`, `packages/client/src/styles.css`, and `specs/boilerplate-implementation-plan.md`. Checks run: `pnpm test` passed, `pnpm typecheck` passed, and `pnpm lint` passed. Next recommended task: build the Web Audio API-based audio manager (P2).
 

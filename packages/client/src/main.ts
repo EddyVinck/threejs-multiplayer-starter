@@ -1,5 +1,8 @@
 import "./styles.css";
 
+import type { RoomSnapshot, SessionJoined } from "@gamejam/shared";
+
+import { createAudioManager } from "./audio-manager.js";
 import {
   describeProtocolErrorStatus,
   describeSessionStartingStatus,
@@ -9,6 +12,11 @@ import {
 import { mountClientBootShell } from "./boot-shell.js";
 import { createClientSettingsStore } from "./persistence.js";
 import { createPlayerCommandPipeline } from "./player-command-pipeline.js";
+import {
+  createLocalScoreObservationState,
+  observeLocalScoreIncrease,
+  resetLocalScoreObservation
+} from "./pickup-score-feedback.js";
 import { createRenderSceneAdapter } from "./render-scene-adapter.js";
 import { applySessionRoomLink } from "./room-link.js";
 import { createSessionOrchestrator } from "./session-orchestrator.js";
@@ -23,6 +31,9 @@ if (!app) {
 
 const orchestrator = createSessionOrchestrator();
 const settingsStore = createClientSettingsStore();
+const audioManager = createAudioManager();
+audioManager.applyAudioSettings(settingsStore.getSettings().audio);
+audioManager.installGestureUnlock();
 const initialSessionEntry = resolveInitialSessionEntry(window.location.search);
 const initialSessionRequest = applyPersistedDisplayName(
   initialSessionEntry.request,
@@ -30,6 +41,7 @@ const initialSessionRequest = applyPersistedDisplayName(
 );
 const bootShell = mountClientBootShell({
   appRoot: app,
+  audioManager,
   resolution: initialSessionEntry,
   settingsStore,
   onStartSession: (request) => {
@@ -65,6 +77,19 @@ async function startSession(
 
   try {
     const session = await orchestrator.startSession(hydratedRequest);
+    const scoreObservation = createLocalScoreObservationState();
+
+    const considerPickupSound = (
+      joined: SessionJoined,
+      snapshot: RoomSnapshot | null
+    ): void => {
+      if (snapshot === null) {
+        return;
+      }
+      if (observeLocalScoreIncrease(scoreObservation, joined.playerId, snapshot)) {
+        audioManager.play("pickup");
+      }
+    };
 
     renderSceneAdapter?.dispose();
     renderSceneAdapter = createRenderSceneAdapter({
@@ -98,10 +123,12 @@ async function startSession(
     if (joinedSession !== null) {
       bootShell.setInGameHudVisible(true);
       bootShell.updateInGameHud(joinedSession, latestSnapshot);
+      considerPickupSound(joinedSession, latestSnapshot);
     }
 
     unsubscribeFromSession = session.subscribe((event) => {
       if (event.type === "joined") {
+        resetLocalScoreObservation(scoreObservation);
         syncRoomLink(event.joined);
         renderSceneAdapter?.syncSessionJoined(event.joined);
         bootShell.setInGameHudVisible(true);
@@ -109,6 +136,7 @@ async function startSession(
           event.joined,
           session.getLatestSnapshot()
         );
+        considerPickupSound(event.joined, session.getLatestSnapshot());
         return;
       }
 
@@ -117,6 +145,7 @@ async function startSession(
         const joined = session.getSessionJoined();
         if (joined !== null) {
           bootShell.updateInGameHud(joined, event.snapshot);
+          considerPickupSound(joined, event.snapshot);
         }
         return;
       }
@@ -128,6 +157,7 @@ async function startSession(
           const joined = session.getSessionJoined();
           if (joined !== null) {
             bootShell.updateInGameHud(joined, updatedSnapshot);
+            considerPickupSound(joined, updatedSnapshot);
           }
         }
         return;

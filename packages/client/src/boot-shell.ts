@@ -12,6 +12,7 @@ import {
   describeInitialBootStatus,
   type BootStatusViewModel
 } from "./boot-status.js";
+import type { AudioManager } from "./audio-manager.js";
 import { buildInGameHudViewModel } from "./in-game-hud.js";
 import type { ClientSettingsStore } from "./persistence.js";
 import { resolveRenderCanvasSize } from "./render-budget.js";
@@ -36,9 +37,12 @@ export function mountClientBootShell(options: {
   appRoot: HTMLElement;
   resolution: SessionEntryResolution;
   settingsStore: ClientSettingsStore;
+  /** When set, volume/mute changes update the running Web Audio graph. */
+  audioManager?: Pick<AudioManager, "applyAudioSettings" | "dispose">;
   onStartSession?: (request: SessionStartRequest) => void;
 }): ClientBootShell {
-  const { appRoot, onStartSession, resolution, settingsStore } = options;
+  const { appRoot, audioManager, onStartSession, resolution, settingsStore } =
+    options;
   const shell = document.createElement("div");
   shell.className = "client-shell";
 
@@ -193,10 +197,12 @@ export function mountClientBootShell(options: {
       ? Math.max(0, Math.min(1, raw / 100))
       : 0;
     settingsStore.patchSettings({ audio: { volume: nextVolume } });
+    audioManager?.applyAudioSettings(settingsStore.getSettings().audio);
   });
 
   muteCheckbox.addEventListener("change", () => {
     settingsStore.patchSettings({ audio: { muted: muteCheckbox.checked } });
+    audioManager?.applyAudioSettings(settingsStore.getSettings().audio);
   });
 
   settingsSection.append(settingsHeading, displayNameField, audioRow);
@@ -446,6 +452,7 @@ export function mountClientBootShell(options: {
     updateInGameHud,
     dispose() {
       window.removeEventListener("resize", resizeCanvases);
+      audioManager?.dispose();
     }
   };
 }
