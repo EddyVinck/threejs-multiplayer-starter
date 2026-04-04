@@ -3,7 +3,7 @@ import "./styles.css";
 import {
   describeJoinedStatus,
   describeProtocolErrorStatus,
-  describeSinglePlayerStartingStatus,
+  describeSessionStartingStatus,
   describeSnapshotStatus,
   describeStartupFailureStatus,
   describeStoppedStatus
@@ -12,6 +12,7 @@ import { mountClientBootShell } from "./boot-shell.js";
 import { createClientSettingsStore } from "./persistence.js";
 import { createPlayerCommandPipeline } from "./player-command-pipeline.js";
 import { createRenderSceneAdapter } from "./render-scene-adapter.js";
+import { applySessionRoomLink } from "./room-link.js";
 import { createSessionOrchestrator } from "./session-orchestrator.js";
 import { resolveInitialSessionEntry } from "./session-entry.js";
 import type { SessionStartRequest } from "./session-orchestrator.js";
@@ -32,10 +33,8 @@ const initialSessionRequest = applyPersistedDisplayName(
 const bootShell = mountClientBootShell({
   appRoot: app,
   resolution: initialSessionEntry,
-  onStartSinglePlayer: () => {
-    void startSession({
-      mode: "single-player"
-    });
+  onStartSession: (request) => {
+    void startSession(request);
   }
 });
 let stopCommandPipeline: (() => void) | null = null;
@@ -58,13 +57,9 @@ async function startSession(
     request,
     settingsStore.getSettings().displayName
   );
-  const isSinglePlayer = hydratedRequest.mode === "single-player";
 
-  if (isSinglePlayer) {
-    bootShell.setSinglePlayerPending(true);
-    bootShell.setStatus(describeSinglePlayerStartingStatus());
-  }
-
+  bootShell.setPendingSessionStart(hydratedRequest.mode);
+  bootShell.setStatus(describeSessionStartingStatus(hydratedRequest));
   bootShell.setPreGameVisible(false);
   unsubscribeFromSession?.();
   unsubscribeFromSession = null;
@@ -88,6 +83,7 @@ async function startSession(
 
     const joinedSession = session.getSessionJoined();
     if (joinedSession !== null) {
+      syncRoomLink(joinedSession);
       renderSceneAdapter.syncSessionJoined(joinedSession);
       bootShell.setStatus(describeJoinedStatus(joinedSession));
     }
@@ -99,11 +95,12 @@ async function startSession(
     }
 
     renderSceneAdapter.start();
-    bootShell.setSinglePlayerPending(false);
+    bootShell.setPendingSessionStart(null);
     bootShell.setPreGameVisible(false);
 
     unsubscribeFromSession = session.subscribe((event) => {
       if (event.type === "joined") {
+        syncRoomLink(event.joined);
         renderSceneAdapter?.syncSessionJoined(event.joined);
         bootShell.setStatus(describeJoinedStatus(event.joined));
         return;
@@ -133,7 +130,7 @@ async function startSession(
         stopCommandPipeline?.();
         stopCommandPipeline = null;
         renderSceneAdapter?.stop();
-        bootShell.setSinglePlayerPending(false);
+        bootShell.setPendingSessionStart(null);
         bootShell.setPreGameVisible(true);
         bootShell.setStatus(describeStoppedStatus());
       }
@@ -147,7 +144,7 @@ async function startSession(
     stopCommandPipeline = null;
     renderSceneAdapter?.dispose();
     renderSceneAdapter = null;
-    bootShell.setSinglePlayerPending(false);
+    bootShell.setPendingSessionStart(null);
     bootShell.setPreGameVisible(true);
     const message =
       error instanceof Error ? error.message : "failed to start session";
@@ -189,4 +186,19 @@ function attachPlayerCommandPipeline(options: {
   return () => {
     pipeline.stop();
   };
+}
+
+function syncRoomLink(joined: Parameters<typeof applySessionRoomLink>[1]): void {
+  if (
+    typeof window === "undefined" ||
+    typeof window.location?.href !== "string" ||
+    typeof window.history?.replaceState !== "function"
+  ) {
+    return;
+  }
+
+  const nextHref = applySessionRoomLink(window.location.href, joined);
+  if (nextHref !== window.location.href) {
+    window.history.replaceState(window.history.state, "", nextHref);
+  }
 }

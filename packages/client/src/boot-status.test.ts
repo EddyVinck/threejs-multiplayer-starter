@@ -6,6 +6,7 @@ import {
   describeInitialBootStatus,
   describeJoinedStatus,
   describeProtocolErrorStatus,
+  describeSessionStartingStatus,
   describeSinglePlayerStartingStatus,
   describeSnapshotStatus
 } from "./boot-status.js";
@@ -51,6 +52,42 @@ describe("boot status", () => {
       title: "Starting local session",
       detail:
         "The loopback session is spinning up while the lightweight game shell stays mounted."
+    });
+  });
+
+  it("describes multiplayer startup states before the first snapshot arrives", () => {
+    expect(
+      describeSessionStartingStatus({
+        mode: "quick-join"
+      })
+    ).toEqual({
+      badge: "Quick Join",
+      title: "Joining a public room",
+      detail:
+        "The client is connecting to the next available multiplayer room and waiting for the first authoritative snapshot."
+    });
+
+    expect(
+      describeSessionStartingStatus({
+        mode: "create-room"
+      })
+    ).toEqual({
+      badge: "Create Room",
+      title: "Creating a private room",
+      detail:
+        "The client is creating a fresh shareable room before handing off to the authoritative multiplayer session."
+    });
+
+    expect(
+      describeSessionStartingStatus({
+        mode: "join-by-code",
+        roomCode: "AB12CD"
+      })
+    ).toEqual({
+      badge: "Join by Code",
+      title: "Joining room AB12CD",
+      detail:
+        "The invite code was accepted locally and the client is waiting for the room snapshot from the server."
     });
   });
 

@@ -1,6 +1,7 @@
 import type { ProtocolError, RoomSnapshot, SessionJoined } from "@gamejam/shared";
 
 import type { SessionEntryResolution } from "./session-entry.js";
+import type { SessionStartRequest } from "./session-orchestrator.js";
 
 export type BootStatusViewModel = {
   badge: string;
@@ -41,6 +42,39 @@ export function describeSinglePlayerStartingStatus(): BootStatusViewModel {
     title: "Starting local session",
     detail:
       "The loopback session is spinning up while the lightweight game shell stays mounted."
+  };
+}
+
+export function describeSessionStartingStatus(
+  request: SessionStartRequest
+): BootStatusViewModel {
+  if (request.mode === "single-player") {
+    return describeSinglePlayerStartingStatus();
+  }
+
+  if (request.mode === "quick-join") {
+    return {
+      badge: "Quick Join",
+      title: "Joining a public room",
+      detail:
+        "The client is connecting to the next available multiplayer room and waiting for the first authoritative snapshot."
+    };
+  }
+
+  if (request.mode === "create-room") {
+    return {
+      badge: "Create Room",
+      title: "Creating a private room",
+      detail:
+        "The client is creating a fresh shareable room before handing off to the authoritative multiplayer session."
+    };
+  }
+
+  return {
+    badge: "Join by Code",
+    title: `Joining room ${request.roomCode}`,
+    detail:
+      "The invite code was accepted locally and the client is waiting for the room snapshot from the server."
   };
 }
 

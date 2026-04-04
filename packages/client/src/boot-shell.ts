@@ -1,25 +1,28 @@
+import { ROOM_CODE_LENGTH, normalizeRoomCode, roomCodeSchema } from "@gamejam/shared";
+
 import {
   describeInitialBootStatus,
   type BootStatusViewModel
 } from "./boot-status.js";
 import { resolveRenderCanvasSize } from "./render-budget.js";
 import type { SessionEntryResolution } from "./session-entry.js";
+import type { SessionStartRequest } from "./session-orchestrator.js";
 
 export type ClientBootShell = {
   canvas: HTMLCanvasElement;
   overlayRoot: HTMLDivElement;
   setStatus(status: BootStatusViewModel): void;
   setPreGameVisible(visible: boolean): void;
-  setSinglePlayerPending(pending: boolean): void;
+  setPendingSessionStart(mode: SessionStartRequest["mode"] | null): void;
   dispose(): void;
 };
 
 export function mountClientBootShell(options: {
   appRoot: HTMLElement;
   resolution: SessionEntryResolution;
-  onStartSinglePlayer?: () => void;
+  onStartSession?: (request: SessionStartRequest) => void;
 }): ClientBootShell {
-  const { appRoot, onStartSinglePlayer, resolution } = options;
+  const { appRoot, onStartSession, resolution } = options;
   const shell = document.createElement("div");
   shell.className = "client-shell";
 
@@ -67,49 +70,119 @@ export function mountClientBootShell(options: {
       return;
     }
 
-    onStartSinglePlayer?.();
+    onStartSession?.({
+      mode: "single-player"
+    });
   });
 
-  const multiplayerActions = [
-    {
-      label: "Quick Join",
-      detail: "Drop into the next available public room."
-    },
-    {
-      label: "Create Room",
-      detail: "Spin up a shareable room for friends."
-    },
-    {
-      label: "Join by Code",
-      detail: "Enter a short room code from an invite."
+  const quickJoinAction = createSecondaryAction({
+    label: "Quick Join",
+    detail: "Drop into the next available public room."
+  });
+  quickJoinAction.button.addEventListener("click", () => {
+    if (quickJoinAction.button.disabled) {
+      return;
     }
-  ];
+
+    onStartSession?.({
+      mode: "quick-join"
+    });
+  });
+
+  const createRoomAction = createSecondaryAction({
+    label: "Create Room",
+    detail: "Spin up a private room and get a shareable code."
+  });
+  createRoomAction.button.addEventListener("click", () => {
+    if (createRoomAction.button.disabled) {
+      return;
+    }
+
+    onStartSession?.({
+      mode: "create-room",
+      visibility: "private",
+      lateJoinAllowed: true
+    });
+  });
+
+  const joinByCodePanel = document.createElement("form");
+  joinByCodePanel.className = "pregame-join-panel";
+
+  const joinByCodeHeader = document.createElement("div");
+  joinByCodeHeader.className = "pregame-join-header";
+
+  const joinByCodeTitle = document.createElement("span");
+  joinByCodeTitle.className = "pregame-action-label";
+  joinByCodeTitle.textContent = "Join by Code";
+
+  const joinByCodeDetail = document.createElement("span");
+  joinByCodeDetail.className = "pregame-action-detail";
+  joinByCodeDetail.textContent =
+    "Enter a short invite code or use the room code already present in the URL.";
+
+  joinByCodeHeader.append(joinByCodeTitle, joinByCodeDetail);
+
+  const joinByCodeControls = document.createElement("div");
+  joinByCodeControls.className = "pregame-join-controls";
+
+  const joinCodeInput = document.createElement("input");
+  joinCodeInput.className = "pregame-code-input";
+  joinCodeInput.type = "text";
+  joinCodeInput.name = "roomCode";
+  joinCodeInput.autocomplete = "off";
+  joinCodeInput.spellcheck = false;
+  joinCodeInput.maxLength = ROOM_CODE_LENGTH + 4;
+  joinCodeInput.placeholder = "AB12CD";
+  joinCodeInput.value = getInitialJoinCode(resolution);
+  joinCodeInput.setAttribute("aria-label", "Room code");
+  joinCodeInput.addEventListener("input", () => {
+    joinCodeInput.value = normalizeRoomCode(joinCodeInput.value);
+    joinCodeError.textContent = "";
+    joinCodeInput.removeAttribute("aria-invalid");
+  });
+
+  const joinByCodeAction = document.createElement("button");
+  joinByCodeAction.className = "pregame-action pregame-join-action";
+  joinByCodeAction.type = "submit";
+  joinByCodeAction.textContent = "Join Room";
+
+  joinByCodeControls.append(joinCodeInput, joinByCodeAction);
+
+  const joinCodeError = document.createElement("p");
+  joinCodeError.className = "pregame-code-error";
+  joinCodeError.setAttribute("aria-live", "polite");
+
+  joinByCodePanel.addEventListener("submit", (event) => {
+    event.preventDefault();
+    if (joinByCodeAction.disabled) {
+      return;
+    }
+
+    const parsedRoomCode = roomCodeSchema.safeParse(joinCodeInput.value);
+    if (!parsedRoomCode.success) {
+      joinCodeError.textContent = `Enter a valid ${ROOM_CODE_LENGTH}-character room code.`;
+      joinCodeInput.setAttribute("aria-invalid", "true");
+      joinCodeInput.focus();
+      return;
+    }
+
+    joinCodeInput.value = parsedRoomCode.data;
+    joinCodeError.textContent = "";
+    joinCodeInput.removeAttribute("aria-invalid");
+    onStartSession?.({
+      mode: "join-by-code",
+      roomCode: parsedRoomCode.data
+    });
+  });
+
+  joinByCodePanel.append(joinByCodeHeader, joinByCodeControls, joinCodeError);
 
   actionGroup.append(primaryAction);
-  for (const action of multiplayerActions) {
-    const button = document.createElement("button");
-    button.className = "pregame-action pregame-action-secondary";
-    button.type = "button";
-    button.disabled = true;
-
-    const label = document.createElement("span");
-    label.className = "pregame-action-label";
-    label.textContent = action.label;
-
-    const detail = document.createElement("span");
-    detail.className = "pregame-action-detail";
-    detail.textContent = `${action.detail} Coming next.`;
-
-    button.append(label, detail);
-    actionGroup.append(button);
-  }
+  actionGroup.append(quickJoinAction.button, createRoomAction.button, joinByCodePanel);
 
   const preGameFooter = document.createElement("p");
   preGameFooter.className = "pregame-footer";
-  preGameFooter.textContent =
-    resolution.source === "room-link"
-      ? `Invite link detected for room ${resolution.roomCode}.`
-      : "Room invite links still auto-connect when a valid room code is present in the URL.";
+  preGameFooter.textContent = describePreGameFooter(resolution);
 
   const bootPanel = document.createElement("section");
   bootPanel.className = "boot-panel";
@@ -170,27 +243,99 @@ export function mountClientBootShell(options: {
     preGamePanel.hidden = !visible;
   };
 
-  const setSinglePlayerPending = (pending: boolean) => {
-    primaryAction.disabled = pending;
-    primaryAction.textContent = pending ? "Starting Solo..." : "Play Solo";
+  const setPendingSessionStart = (mode: SessionStartRequest["mode"] | null) => {
+    const hasPendingStart = mode !== null;
+
+    primaryAction.disabled = hasPendingStart;
+    primaryAction.textContent = mode === "single-player" ? "Starting Solo..." : "Play Solo";
+
+    quickJoinAction.button.disabled = hasPendingStart;
+    quickJoinAction.detail.textContent =
+      mode === "quick-join"
+        ? "Connecting to the next available public room..."
+        : quickJoinAction.defaultDetail;
+
+    createRoomAction.button.disabled = hasPendingStart;
+    createRoomAction.detail.textContent =
+      mode === "create-room"
+        ? "Creating a fresh private room..."
+        : createRoomAction.defaultDetail;
+
+    joinCodeInput.disabled = hasPendingStart;
+    joinByCodeAction.disabled = hasPendingStart;
+    joinByCodeAction.textContent =
+      mode === "join-by-code" ? "Joining..." : "Join Room";
   };
 
   resizeCanvases();
   window.addEventListener("resize", resizeCanvases);
   setStatus(describeInitialBootStatus(resolution));
   setPreGameVisible(resolution.source !== "room-link");
-  setSinglePlayerPending(false);
+  setPendingSessionStart(null);
 
   return {
     canvas,
     overlayRoot,
     setStatus,
     setPreGameVisible,
-    setSinglePlayerPending,
+    setPendingSessionStart,
     dispose() {
       window.removeEventListener("resize", resizeCanvases);
     }
   };
+}
+
+function createSecondaryAction(copy: {
+  label: string;
+  detail: string;
+}): {
+  button: HTMLButtonElement;
+  detail: HTMLSpanElement;
+  defaultDetail: string;
+} {
+  const button = document.createElement("button");
+  button.className = "pregame-action pregame-action-secondary";
+  button.type = "button";
+
+  const label = document.createElement("span");
+  label.className = "pregame-action-label";
+  label.textContent = copy.label;
+
+  const detail = document.createElement("span");
+  detail.className = "pregame-action-detail";
+  detail.textContent = copy.detail;
+
+  button.append(label, detail);
+
+  return {
+    button,
+    detail,
+    defaultDetail: copy.detail
+  };
+}
+
+function getInitialJoinCode(resolution: SessionEntryResolution): string {
+  if (resolution.source === "room-link") {
+    return resolution.roomCode;
+  }
+
+  if (resolution.source === "invalid-room-link") {
+    return normalizeRoomCode(resolution.invalidRoomCode);
+  }
+
+  return "";
+}
+
+function describePreGameFooter(resolution: SessionEntryResolution): string {
+  if (resolution.source === "room-link") {
+    return `Invite link detected for room ${resolution.roomCode}. If the auto-join fails, the code stays ready to retry below.`;
+  }
+
+  if (resolution.source === "invalid-room-link") {
+    return `Invite link code "${resolution.invalidRoomCode}" was invalid. You can correct it and retry from the room-code form above.`;
+  }
+
+  return "Room invite links still auto-connect when a valid room code is present in the URL.";
 }
 
 function paintBootBackdrop(canvas: HTMLCanvasElement): void {

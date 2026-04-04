@@ -33,7 +33,7 @@
 - [x] P1: Verify late join by sending an authoritative room snapshot followed by live updates and ensuring a new client can enter an in-progress round in a valid state.
 
 - [x] P1: Build the lightweight DOM/CSS UI shell with a small pre-game screen, single-player as the primary CTA, and multiplayer actions visible but secondary.
-- [ ] P1: Add create room, quick join, and join-by-code flows to the UI shell, including room-link handling via URL parameters.
+- [x] P1: Add create room, quick join, and join-by-code flows to the UI shell, including room-link handling via URL parameters.
 - [ ] P1: Add local player name editing and settings controls to the UI shell with persistence integration.
 - [ ] P1: Add a minimal in-game HUD showing score, round timer, and room state relevant to the current mode.
 
@@ -46,6 +46,8 @@
 - [ ] P2: Review all deep module interfaces after the first end-to-end pass and simplify any surface area that became too chatty or leaked implementation details.
 
 ## Progress Log
+
+- 2026-04-04: Completed the multiplayer-entry UI-shell P1 task by turning the pre-game shell's placeholder multiplayer affordances into real `Quick Join`, `Create Room`, and `Join Room` flows, adding an inline room-code entry form that preserves invite-link codes for retry after failed auto-starts, introducing request-specific boot-state messaging while session startup is pending, and syncing the browser URL query back to the authoritative joined room code so shareable room links stay current after multiplayer entry. Files changed: `packages/client/src/boot-shell.ts`, `packages/client/src/boot-status.ts`, `packages/client/src/boot-status.test.ts`, `packages/client/src/main.ts`, `packages/client/src/room-link.ts`, `packages/client/src/room-link.test.ts`, `packages/client/src/styles.css`, and `specs/boilerplate-implementation-plan.md`. Checks run: `pnpm exec vitest run packages/client/src/boot-status.test.ts packages/client/src/room-link.test.ts` passed, `pnpm typecheck` passed, and `pnpm lint` passed. Next recommended task: add local player name editing and settings controls to the UI shell with persistence integration.
 
 - 2026-04-04: Completed the UI-shell P1 task by replacing the immediate default single-player auto-start with a lightweight pre-game overlay that keeps `Play Solo` as the clear primary action, surfaces multiplayer actions as visible secondary affordances in the same shell, preserves valid invite-link auto-start behavior, and updates the boot status copy so the mounted client now reflects menu-driven startup instead of implicit session launch. Files changed: `packages/client/src/boot-shell.ts`, `packages/client/src/boot-status.ts`, `packages/client/src/boot-status.test.ts`, `packages/client/src/main.ts`, `packages/client/src/styles.css`, and `specs/boilerplate-implementation-plan.md`. Checks run: `pnpm exec vitest run packages/client/src/boot-status.test.ts` passed, `pnpm typecheck` passed, `pnpm lint` passed, and `pnpm --filter @gamejam/client build` passed with the existing Vite client chunk-size warning caused by the bundled Rapier payload. Next recommended task: add create room, quick join, and join-by-code flows to the UI shell, including room-link handling via URL parameters.
 
