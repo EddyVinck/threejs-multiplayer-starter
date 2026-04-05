@@ -15,7 +15,6 @@ require_file() {
   fi
 }
 
-require_file "$root/packages/shared/dist/index.js"
 require_file "$root/packages/server/dist/index.js"
 require_file "$root/packages/client/dist/index.html"
 # Vite emits hashed bundles under assets/; ensure at least one JS bundle landed.

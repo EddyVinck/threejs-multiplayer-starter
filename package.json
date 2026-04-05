@@ -4,7 +4,7 @@
   "packageManager": "pnpm@10.26.0",
   "scripts": {
     "dev": "pnpm exec concurrently -n server,client -c cyan,magenta \"pnpm --filter @gamejam/server dev\" \"pnpm --filter @gamejam/client dev\"",
-    "build": "pnpm --filter @gamejam/shared build && pnpm --filter @gamejam/client build && pnpm --filter @gamejam/server build",
+    "build": "pnpm --filter @gamejam/client build && pnpm --filter @gamejam/server build",
     "start": "NODE_ENV=production node packages/server/dist/index.js",
     "lint": "pnpm exec eslint .",
     "typecheck": "pnpm --filter @gamejam/shared typecheck && pnpm --filter @gamejam/server typecheck && pnpm --filter @gamejam/client typecheck",

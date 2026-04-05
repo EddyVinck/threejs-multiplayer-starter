@@ -26,7 +26,7 @@ Open the URL Vite prints (typically `http://127.0.0.1:5173`).
 
 ## Production-style run (localhost)
 
-Builds the client to `packages/client/dist`, compiles the server, then serves the static client from the same Node process as Socket.IO (deploy-shaped setup):
+Builds the client to `packages/client/dist`, bundles the server into `packages/server/dist/index.js`, then serves the static client from the same Node process as Socket.IO (deploy-shaped setup):
 
 ```bash
 pnpm build
